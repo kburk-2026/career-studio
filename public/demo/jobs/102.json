@@ -1,0 +1,27 @@
+{
+  "id": 102,
+  "fictional": true,
+  "company": "Quillon University",
+  "role_title": "Senior Instructional Designer",
+  "status": "APPLIED",
+  "jd_text": "Fictional posting for a senior instructional designer leading course development with faculty.",
+  "strengths": [
+    "Team leadership",
+    "Review process improvement"
+  ],
+  "gaps": [
+    "Hybrid schedule"
+  ],
+  "answers": [
+    {
+      "question": "What is your design philosophy?",
+      "answer": "Start from what learners need to do, then build the smallest course that gets them there."
+    }
+  ],
+  "history": [
+    {
+      "status": "APPLIED",
+      "at": "2026-10-14"
+    }
+  ]
+}

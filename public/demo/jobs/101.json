@@ -1,0 +1,97 @@
+{
+  "id": 101,
+  "fictional": true,
+  "company": "Maplecrest Community College",
+  "role_title": "Learning Technology Specialist",
+  "status": "INTERVIEWING",
+  "jd_text": "Fictional posting. Maplecrest seeks a Learning Technology Specialist to evaluate design workflows for AI opportunities, configure approved AI tools and Canvas features, build reusable prompts, test them for accuracy, train staff, and follow accessibility and privacy requirements.",
+  "strengths": [
+    "Reusable prompt library with designer review",
+    "Measured process improvement (review rounds 3 to 2)",
+    "Accessibility remediation at scale"
+  ],
+  "gaps": [
+    "No production AI deployment; the QA assistant is a prototype",
+    "No direct LMS integration work"
+  ],
+  "answers": [
+    {
+      "question": "Why are you interested in this role?",
+      "answer": "I like turning repetitive design work into reviewed, reusable workflows, and this role is built around exactly that."
+    },
+    {
+      "question": "Describe your experience with AI tools.",
+      "answer": "I built a prompt library for course outlines with a required designer review, and wrote standing instructions so our assistant flags missing sources instead of inventing them."
+    }
+  ],
+  "history": [
+    {
+      "status": "APPLIED",
+      "at": "2026-10-06"
+    },
+    {
+      "status": "INTERVIEWING",
+      "at": "2026-10-21"
+    }
+  ],
+  "coach": {
+    "priorities": [
+      {
+        "title": "Practical AI workflow design",
+        "detail": "Find repetitive design work and turn it into reviewed, reusable AI-supported workflows."
+      },
+      {
+        "title": "Testing before adoption",
+        "detail": "Check accuracy and usability before staff rely on a tool."
+      },
+      {
+        "title": "Training and adoption",
+        "detail": "Document, train, and gather feedback so staff actually use it."
+      },
+      {
+        "title": "Accessibility and privacy",
+        "detail": "Work within accessibility, privacy, and approved-tool rules."
+      }
+    ],
+    "concern": "The profile shows prompt libraries and a prototype, but no production AI deployment or LMS integration. Be precise about what is a prototype and how outputs are reviewed.",
+    "stories": [
+      {
+        "title": "Prompt library for course outlines",
+        "situation": "Designers spent their first days on every new course drafting outlines from scratch.",
+        "action": "Built a shared prompt library for first-draft outlines and required a designer review before anything was used.",
+        "result": "Designers start from a reviewed draft; no time-savings figure is confirmed."
+      },
+      {
+        "title": "Stopping invented sources",
+        "situation": "An AI assistant sometimes cited sources that did not exist.",
+        "action": "Wrote standing instructions telling it to report missing sources instead of filling the gap, and spot-checked citations.",
+        "result": "Research drafts now flag gaps openly; no error-rate figure is confirmed."
+      },
+      {
+        "title": "Course review checklist",
+        "situation": "Course reviews bounced between designers and faculty too many times.",
+        "action": "Created a shared review checklist and trained the team on it.",
+        "result": "Average review rounds fell from 3 to 2 across 40 courses."
+      },
+      {
+        "title": "Accessibility remediation",
+        "situation": "Course pages did not meet the institution's accessibility standard.",
+        "action": "Planned and led a one-term remediation sprint with the design team.",
+        "result": "120 course pages brought to standard in one term."
+      },
+      {
+        "title": "Leading a design team",
+        "situation": "A team of four designers had uneven processes.",
+        "action": "Set shared standards and weekly reviews.",
+        "result": "A consistent development process; no outcome lift is confirmed."
+      },
+      {
+        "title": "Course-QA assistant prototype",
+        "situation": "Manual QA missed broken links and missing alt text.",
+        "action": "Prototyped a checklist assistant to pre-screen courses.",
+        "result": "Prototype only, not in production. Describe it that way."
+      }
+    ],
+    "first_question": "Tell me about a time you introduced an AI-supported workflow to a design team. How did you make sure it was accurate before people relied on it?"
+  }
+}

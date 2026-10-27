@@ -1,0 +1,25 @@
+{
+  "id": 103,
+  "fictional": true,
+  "company": "Brightwater Learning Co.",
+  "role_title": "Learning Experience Designer",
+  "status": "EMPLOYER_REJECTED",
+  "jd_text": "Fictional posting for a corporate learning experience designer.",
+  "strengths": [
+    "Design fundamentals"
+  ],
+  "gaps": [
+    "Corporate L&D experience"
+  ],
+  "answers": [],
+  "history": [
+    {
+      "status": "APPLIED",
+      "at": "2026-09-22"
+    },
+    {
+      "status": "EMPLOYER_REJECTED",
+      "at": "2026-10-09"
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "id": 104,
+  "fictional": true,
+  "company": "Tallgrass Technical Institute",
+  "role_title": "Online Program Developer",
+  "status": "INTERVIEWING",
+  "jd_text": "Fictional posting. Tallgrass needs an online program developer to build technical programs in Moodle, keep courses accessible, and improve the course review process.",
+  "strengths": [
+    "Moodle experience",
+    "Course review checklist results",
+    "Accessibility remediation"
+  ],
+  "gaps": [
+    "No technical-trades program experience"
+  ],
+  "answers": [
+    {
+      "question": "Which LMS platforms have you used?",
+      "answer": "Canvas and Moodle."
+    },
+    {
+      "question": "How do you handle accessibility?",
+      "answer": "I led a one-term remediation that brought 120 course pages to our standard."
+    },
+    {
+      "question": "Describe a process you improved.",
+      "answer": "A shared review checklist cut our average review rounds from 3 to 2 across 40 courses."
+    }
+  ],
+  "history": [
+    {
+      "status": "APPLIED",
+      "at": "2026-09-30"
+    },
+    {
+      "status": "INTERVIEWING",
+      "at": "2026-10-16"
+    }
+  ],
+  "coach": {
+    "priorities": [
+      {
+        "title": "Program build in Moodle",
+        "detail": "Build and maintain online programs in Moodle."
+      },
+      {
+        "title": "Accessibility",
+        "detail": "Keep every course at the accessibility standard."
+      },
+      {
+        "title": "Review process",
+        "detail": "Make course review faster without losing quality."
+      }
+    ],
+    "concern": "No experience with technical-trades programs. Show how the design process transfers rather than claiming subject expertise.",
+    "stories": [
+      {
+        "title": "Course review checklist",
+        "situation": "Course reviews bounced between designers and faculty too many times.",
+        "action": "Created a shared review checklist and trained the team on it.",
+        "result": "Average review rounds fell from 3 to 2 across 40 courses."
+      },
+      {
+        "title": "Accessibility remediation",
+        "situation": "Course pages did not meet the institution's accessibility standard.",
+        "action": "Planned and led a one-term remediation sprint with the design team.",
+        "result": "120 course pages brought to standard in one term."
+      },
+      {
+        "title": "Leading a design team",
+        "situation": "A team of four designers had uneven processes.",
+        "action": "Set shared standards and weekly reviews.",
+        "result": "A consistent development process; no outcome lift is confirmed."
+      },
+      {
+        "title": "Prompt library for course outlines",
+        "situation": "Designers spent their first days on every new course drafting outlines from scratch.",
+        "action": "Built a shared prompt library for first-draft outlines and required a designer review before anything was used.",
+        "result": "Designers start from a reviewed draft; no time-savings figure is confirmed."
+      },
+      {
+        "title": "Course-QA assistant prototype",
+        "situation": "Manual QA missed broken links and missing alt text.",
+        "action": "Prototyped a checklist assistant to pre-screen courses.",
+        "result": "Prototype only, not in production. Describe it that way."
+      }
+    ],
+    "first_question": "Walk me through how you would take a new technical program from outline to launch in Moodle."
+  }
+}

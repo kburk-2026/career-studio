@@ -1,0 +1,6 @@
+# Copy to .privacy-canaries.txt (gitignored) and list one private term per line:
+# real employers you applied to, past employers, your surname if you want it
+# kept out, your Mac username. `npm run check` fails if any appears in a file
+# git would publish. Lines starting with # are ignored.
+Example Real Employer
+Another Company Inc

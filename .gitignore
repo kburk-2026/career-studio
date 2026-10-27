@@ -1,0 +1,21 @@
+# ---- secrets: never commit ----
+.env
+.env.*
+!.env.example
+*.pem
+*secret*
+*token*
+
+# ---- private data: never commit ----
+.privacy-canaries.txt
+exports/
+backups/
+*.db
+*.sqlite
+*.sqlite3
+private/
+
+# ---- tooling ----
+node_modules/
+.vercel/
+.DS_Store

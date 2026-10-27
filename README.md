@@ -24,7 +24,7 @@ The guardrails are code, not just prompt wording:
 | Phase | What | State |
 |---|---|---|
 | 1 | Repo, app shell, fictional demo, privacy guard | **Done** |
-| 2 | Supabase: schema, row-level security, sign-in | Next |
+| 2 | Supabase: schema, row-level security, sign-in | **In progress** (schema + RLS live and tested) |
 | 3 | Vercel: hosting and authenticated API | Planned |
 | 4 | Live AI coach (Claude, behind a provider adapter) | Planned |
 | 5 | Real dashboard data and profile editing | Planned |
@@ -40,6 +40,7 @@ Requires Node 20+. There are no dependencies to install.
 npm run dev      # preview at http://localhost:4173
 npm test         # unit and fixture tests
 npm run check    # privacy guard: secrets, contact details, private names
+npm run check:rls  # live row-level security test (needs a local .env; see .env.example)
 ```
 
 ## How it's built

@@ -5,31 +5,228 @@
     {
       "title": "Background",
       "items": [
-        { "text": "12 years in instructional design and online learning at community colleges and universities.", "verified": true },
-        { "text": "Led a team of four instructional designers.", "verified": true },
-        { "text": "Learning systems: Canvas and Moodle.", "verified": true }
+        {
+          "text": "12 years in instructional design and online learning at community colleges and universities.",
+          "verified": true
+        },
+        {
+          "text": "Led a team of four instructional designers.",
+          "verified": true
+        },
+        {
+          "text": "Learning systems: Canvas and Moodle.",
+          "verified": true
+        }
       ]
     },
     {
       "title": "AI-supported workflows",
       "items": [
-        { "text": "Built a prompt library for first-draft course outlines, reviewed by a designer before use.", "verified": true },
-        { "text": "Wrote standing instructions so an AI assistant reports missing sources instead of inventing them.", "verified": true },
-        { "text": "Prototype course-QA checklist assistant (not in production).", "verified": true }
+        {
+          "text": "Built a prompt library for first-draft course outlines, reviewed by a designer before use.",
+          "verified": true
+        },
+        {
+          "text": "Wrote standing instructions so an AI assistant reports missing sources instead of inventing them.",
+          "verified": true
+        },
+        {
+          "text": "Prototype course-QA checklist assistant (not in production).",
+          "verified": true
+        }
       ]
     },
     {
       "title": "Measured results",
       "items": [
-        { "text": "Course review checklist cut average review rounds from 3 to 2 across 40 courses.", "verified": true },
-        { "text": "Accessibility remediation brought 120 course pages to the institution's standard in one term.", "verified": true }
+        {
+          "text": "Course review checklist cut average review rounds from 3 to 2 across 40 courses.",
+          "verified": true
+        },
+        {
+          "text": "Accessibility remediation brought 120 course pages to the institution's standard in one term.",
+          "verified": true
+        }
       ]
     },
     {
       "title": "Tools",
       "items": [
-        { "text": "Canvas, Moodle, Kaltura, Power BI, Microsoft 365.", "verified": true }
+        {
+          "text": "Canvas, Moodle, Kaltura, Power BI, Microsoft 365.",
+          "verified": true
+        }
       ]
     }
-  ]
+  ],
+  "facts": [
+    {
+      "id": 1,
+      "kind": "skill",
+      "group": "Instructional design",
+      "text": "Online and blended course design",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 2,
+      "kind": "skill",
+      "group": "Instructional design",
+      "text": "Curriculum mapping",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 3,
+      "kind": "skill",
+      "group": "Instructional design",
+      "text": "Accessibility remediation (WCAG)",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 4,
+      "kind": "skill",
+      "group": "Instructional design",
+      "text": "Course quality review",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 5,
+      "kind": "skill",
+      "group": "Learning technology",
+      "text": "Canvas",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 6,
+      "kind": "skill",
+      "group": "Learning technology",
+      "text": "Moodle",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 7,
+      "kind": "skill",
+      "group": "Learning technology",
+      "text": "Kaltura",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 8,
+      "kind": "skill",
+      "group": "Learning technology",
+      "text": "Power BI",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 9,
+      "kind": "skill",
+      "group": "Learning technology",
+      "text": "Microsoft 365",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 10,
+      "kind": "skill",
+      "group": "AI-supported workflows",
+      "text": "Reusable prompt libraries with human review",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 11,
+      "kind": "skill",
+      "group": "AI-supported workflows",
+      "text": "Standing instructions for AI assistants",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 12,
+      "kind": "skill",
+      "group": "AI-supported workflows",
+      "text": "Prototype QA checklist assistant (not in production)",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 13,
+      "kind": "skill",
+      "group": "Leadership",
+      "text": "Led a team of four instructional designers",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 14,
+      "kind": "skill",
+      "group": "Learning technology",
+      "text": "Articulate Rise",
+      "verified": false,
+      "source": "import"
+    },
+    {
+      "id": 15,
+      "kind": "result",
+      "group": "Northfield Community College",
+      "text": "Course review checklist cut average review rounds from 3 to 2 across 40 courses.",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 16,
+      "kind": "result",
+      "group": "Northfield Community College",
+      "text": "Accessibility remediation brought 120 course pages to the institution's standard in one term.",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 17,
+      "kind": "result",
+      "group": "Northfield Community College",
+      "text": "12 years in instructional design and online learning at community colleges and universities.",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 18,
+      "kind": "education",
+      "group": "Education",
+      "text": "MEd, Instructional Design and Technology, Lakeview State University",
+      "verified": true,
+      "source": "import"
+    },
+    {
+      "id": 19,
+      "kind": "education",
+      "group": "Education",
+      "text": "BA, English, Riverbend College",
+      "verified": true,
+      "source": "import"
+    }
+  ],
+  "prefs": {
+    "target_titles": "Learning Technology Specialist; Senior Instructional Designer",
+    "level": "Senior / Lead",
+    "salary_min": null,
+    "salary_target": null,
+    "employment_type": "Full-time",
+    "arrangement": "Remote or hybrid",
+    "location": "Remote (United States)",
+    "industries_preferred": "Higher education, workforce learning",
+    "industries_avoid": null,
+    "company_size": null,
+    "travel": "Up to 10%",
+    "needs_sponsorship": false,
+    "earliest_start": "2 weeks notice",
+    "must_haves": null
+  }
 }

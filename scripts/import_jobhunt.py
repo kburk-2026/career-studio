@@ -15,6 +15,7 @@ Never prints keys. Python 3.9+, standard library only.
 """
 import argparse
 import json
+import re
 import sqlite3
 import sys
 import urllib.error
@@ -59,6 +60,23 @@ def date_only(value):
     return value[:10] if value else None
 
 
+DIM_NAMES = {"core": "core", "shape": "shape", "role shape": "shape", "domain": "domain",
+             "scope": "scope", "tools": "tools", "quals": "quals", "qualifications": "quals"}
+
+
+def fit_breakdown(notes):
+    """The six rubric scores from a tracker note like 'SCORE 70 = [core 3 x.35, shape 2 x.20, ...]'."""
+    m = re.search(r"SCORE \d+ = \[(.*?)\]", notes or "")
+    if not m:
+        return None
+    dims = {}
+    for part in m.group(1).split(","):
+        mm = re.match(r"\s*([a-z ]+?)\s+(\d)\s+x", part)
+        if mm and mm.group(1) in DIM_NAMES:
+            dims[DIM_NAMES[mm.group(1)]] = int(mm.group(2))
+    return dims if len(dims) == 6 else None
+
+
 def read_tracker(db_path):
     con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     con.row_factory = sqlite3.Row
@@ -89,6 +107,7 @@ def read_tracker(db_path):
                 "resume_file": file_name(j["resume_pdf_path"]),
                 "cover_letter_file": file_name(j["cover_letter_path"]),
                 "notes": j["notes"],
+                "fit_breakdown": fit_breakdown(j["notes"]),
             },
             "answers": [dict(a) for a in answers],
             "history": [{"status": h["status"], "changed_at": h["at"]} for h in history],
@@ -134,6 +153,21 @@ class Supabase:
         except urllib.error.HTTPError as e:
             detail = e.read().decode()[:300]
             sys.exit(f"Supabase {method} {path.split('?')[0]} failed: HTTP {e.code} {detail}")
+
+    def upload(self, path, data, content_type):
+        """Uploads bytes to Storage (no overwrite)."""
+        req = urllib.request.Request(self.url + path, method="POST", data=data)
+        req.add_header("apikey", self.key)
+        req.add_header("Authorization", f"Bearer {self.key}")
+        req.add_header("Content-Type", content_type)
+        try:
+            with urllib.request.urlopen(req, timeout=60) as res:
+                res.read()
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode()[:200]
+            if e.code == 400 and "already exists" in detail.lower() or e.code == 409:
+                return
+            sys.exit(f"Storage upload failed: HTTP {e.code} {detail}")
 
     def owner_id(self, email):
         page = 1

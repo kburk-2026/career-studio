@@ -1,12 +1,18 @@
 // Data source for the app.
 //
-// The UI only talks to a "source" object with these methods, so Phase 3 can
-// swap the demo files for authenticated API calls without touching app.js:
+// The UI only talks to a "source" object, so the signed-in owner's live data
+// and the public fictional demo are interchangeable:
 //
-//   meta()               -> { mode, candidate, generated_at }
-//   listApplications()   -> [{ id, company, role_title, status, ... }]
-//   getApplication(id)   -> { ...detail, coach? } or null
-//   getProfile()         -> { source_label, groups: [{ title, items: [{ text, verified }] }] }
+//   meta(), listApplications(), getApplication(id)
+//   createJob(fields), updateJob(id, fields)
+//   addAnswer(jobId, fields), updateAnswer(id, fields), deleteAnswer(id)
+//   getProfile(), savePrefs(prefs), addFact(fact), updateFact(id, fields), deleteFact(id)
+//   listDocuments(), getDocument(id), saveDocument(id, fields), copyDocument(id),
+//   markSent(id), documentFileUrl(id)
+//
+// Demo writes change in-memory state only; nothing is sent anywhere.
+
+import { localToday, normStatus } from "./format.js";
 
 const DEMO_ROOT = "demo/";
 
@@ -16,50 +22,180 @@ async function getJson(path) {
   return res.json();
 }
 
+const clone = (x) => JSON.parse(JSON.stringify(x));
+
 export function demoSource() {
+  let list = null;
+  const details = new Map();
+  let profile = null;
+  let docs = null;
+  let nextId = 1000;
+
+  const loadList = async () => (list ||= await getJson(`${DEMO_ROOT}applications.json`));
+  const loadProfile = async () => {
+    if (!profile) {
+      profile = await getJson(`${DEMO_ROOT}profile.json`);
+      profile.facts ||= [];
+      profile.prefs ||= {};
+    }
+    return profile;
+  };
+  const loadDocs = async () => (docs ||= (await getJson(`${DEMO_ROOT}documents.json`)).documents);
+  async function detail(id) {
+    if (!details.has(id)) {
+      try {
+        details.set(id, await getJson(`${DEMO_ROOT}jobs/${id}.json`));
+      } catch {
+        return null;
+      }
+    }
+    return details.get(id);
+  }
+  const listRow = async (id) => (await loadList()).jobs.find((j) => j.id === id);
+
   return {
     mode: "demo",
     async meta() {
-      const list = await getJson(`${DEMO_ROOT}applications.json`);
-      return { mode: "demo", candidate: list.candidate, generated_at: list.generated_at };
+      const l = await loadList();
+      return { mode: "demo", candidate: l.candidate, generated_at: l.generated_at };
     },
     async listApplications() {
-      return (await getJson(`${DEMO_ROOT}applications.json`)).jobs || [];
+      return clone((await loadList()).jobs);
     },
     async getApplication(id) {
       // Only integer ids reach the path, so a crafted id can't walk the folder.
       if (!Number.isInteger(id)) return null;
-      try {
-        return await getJson(`${DEMO_ROOT}jobs/${id}.json`);
-      } catch {
-        return null;
+      const d = await detail(id);
+      return d ? clone(d) : null;
+    },
+    async createJob(fields) {
+      const id = nextId++;
+      const status = fields.status || "IN_PROGRESS";
+      const row = { id, company: fields.company, role_title: fields.role_title, location: fields.location || "", status, applied_on: null, fit_score: null, odds_score: null, answer_count: 0, has_resume: false, has_cover_letter: false };
+      (await loadList()).jobs.unshift(row);
+      details.set(id, { ...row, fictional: true, jd_text: fields.jd_text || "", source_url: fields.source_url || null, strengths: [], gaps: [], answers: [], history: [{ status, at: localToday() }] });
+      return { id };
+    },
+    async updateJob(id, fields) {
+      const row = await listRow(id);
+      const d = await detail(id);
+      if (!row || !d) throw new Error("Not found.");
+      if (fields.status && fields.status !== row.status) {
+        d.history.push({ status: fields.status, at: localToday() });
+        if (fields.status === "APPLIED" && !row.applied_on) row.applied_on = d.applied_on = localToday();
       }
+      Object.assign(row, fields);
+      Object.assign(d, fields);
+      return { id, status: row.status, applied_on: row.applied_on };
+    },
+    async addAnswer(jobId, fields) {
+      const d = await detail(jobId);
+      const a = { id: nextId++, question: fields.question, answer: fields.answer || "", char_limit: fields.char_limit || null, final: false };
+      d.answers.push(a);
+      (await listRow(jobId)).answer_count = d.answers.length;
+      return clone(a);
+    },
+    async updateAnswer(id, fields) {
+      for (const d of details.values()) {
+        const a = d.answers.find((x) => x.id === id);
+        if (!a) continue;
+        Object.assign(a, fields);
+        if (("answer" in fields || "question" in fields) && !("final" in fields)) a.final = false;
+        return clone(a);
+      }
+      throw new Error("Not found.");
+    },
+    async deleteAnswer(id) {
+      for (const [jobId, d] of details) {
+        const i = d.answers.findIndex((x) => x.id === id);
+        if (i < 0) continue;
+        d.answers.splice(i, 1);
+        (await listRow(jobId)).answer_count = d.answers.length;
+        return { deleted: id };
+      }
+      throw new Error("Not found.");
     },
     async getProfile() {
-      return getJson(`${DEMO_ROOT}profile.json`);
+      return clone(await loadProfile());
+    },
+    async savePrefs(prefs) {
+      Object.assign((await loadProfile()).prefs, prefs);
+      return clone(profile.prefs);
+    },
+    async addFact(fact) {
+      const f = { id: nextId++, kind: fact.kind || "skill", group: fact.group || "Other", text: fact.text, verified: false, source: "app" };
+      (await loadProfile()).facts.push(f);
+      return clone(f);
+    },
+    async updateFact(id, fields) {
+      const f = (await loadProfile()).facts.find((x) => x.id === id);
+      if (!f) throw new Error("Not found.");
+      if ("text" in fields && fields.text !== f.text) Object.assign(f, { text: fields.text, verified: false });
+      else if ("verified" in fields) f.verified = fields.verified;
+      if ("group" in fields) f.group = fields.group;
+      return clone(f);
+    },
+    async deleteFact(id) {
+      const p = await loadProfile();
+      p.facts = p.facts.filter((x) => x.id !== id);
+      return { deleted: id };
+    },
+    async listDocuments() {
+      return clone((await loadDocs()).map(({ content, ...d }) => d));
+    },
+    async getDocument(id) {
+      const d = (await loadDocs()).find((x) => x.id === id);
+      return d ? clone({ ...d, has_file: false }) : null;
+    },
+    async saveDocument(id, fields) {
+      const d = (await loadDocs()).find((x) => x.id === id);
+      if (!d) throw new Error("Not found.");
+      if (d.sent) throw new Error("Sent documents are locked. Make a copy to edit.");
+      Object.assign(d, fields, { updated_at: new Date().toISOString() });
+      return clone(d);
+    },
+    async copyDocument(id) {
+      const all = await loadDocs();
+      const src = all.find((x) => x.id === id);
+      const copy = { ...clone(src), id: nextId++, parent_id: id, sent: false, sent_at: null, title: `${src.title} (copy)`, created_at: new Date().toISOString() };
+      all.unshift(copy);
+      return clone(copy);
+    },
+    async markSent(id) {
+      const d = (await loadDocs()).find((x) => x.id === id);
+      Object.assign(d, { sent: true, sent_at: new Date().toISOString() });
+      return clone(d);
+    },
+    async documentFileUrl() {
+      throw new Error("The demo has no stored files.");
     },
   };
 }
 
-// The signed-in owner's real records, read through the API as that user.
+// The signed-in owner's real records, read and written through the API as
+// that user (row-level security applies to every request).
 export function apiSource(getToken) {
-  async function api(path) {
+  async function api(path, { method = "GET", body } = {}) {
     const token = await getToken();
     if (!token) throw Object.assign(new Error("Your session has expired. Sign in again."), { status: 401 });
-    const res = await fetch(`api/${path}`, { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw Object.assign(new Error(body.error || `Request failed (${res.status}).`), { status: res.status });
-    return body;
+    const headers = { Accept: "application/json", Authorization: `Bearer ${token}` };
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+    const res = await fetch(`api/${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(data.error || `Request failed (${res.status}).`), { status: res.status });
+    return data;
   }
   let listing = null;
   const list = () => (listing ||= api("jobs"));
+  const fresh = () => { listing = null; };
+
   return {
     mode: "live",
     async meta() {
       return (await list()).meta;
     },
     async listApplications() {
-      return (await list()).jobs;
+      return (await list()).jobs.map((j) => ({ ...j, status: normStatus(j.status) }));
     },
     async getApplication(id) {
       if (!Number.isInteger(id)) return null;
@@ -70,9 +206,22 @@ export function apiSource(getToken) {
         throw e;
       }
     },
-    async getProfile() {
-      return api("profile");
-    },
+    async createJob(fields) { fresh(); return api("jobs", { method: "POST", body: fields }); },
+    async updateJob(id, fields) { fresh(); return api(`jobs?id=${id}`, { method: "PATCH", body: fields }); },
+    async addAnswer(jobId, fields) { fresh(); return api("answers", { method: "POST", body: { job_id: jobId, ...fields } }); },
+    async updateAnswer(id, fields) { return api(`answers?id=${id}`, { method: "PATCH", body: fields }); },
+    async deleteAnswer(id) { fresh(); return api(`answers?id=${id}`, { method: "DELETE" }); },
+    async getProfile() { return api("profile"); },
+    async savePrefs(prefs) { return api("profile", { method: "PATCH", body: prefs }); },
+    async addFact(fact) { return api("profile", { method: "POST", body: fact }); },
+    async updateFact(id, fields) { return api(`profile?fact=${id}`, { method: "PATCH", body: fields }); },
+    async deleteFact(id) { return api(`profile?fact=${id}`, { method: "DELETE" }); },
+    async listDocuments() { return (await api("documents")).documents; },
+    async getDocument(id) { return api(`documents?id=${id}`); },
+    async saveDocument(id, fields) { return api(`documents?id=${id}`, { method: "PATCH", body: fields }); },
+    async copyDocument(id) { return api(`documents?copy=${id}`, { method: "POST" }); },
+    async markSent(id) { fresh(); return api(`documents?sent=${id}`, { method: "POST" }); },
+    async documentFileUrl(id) { return (await api(`documents?id=${id}&file=1`)).url; },
   };
 }
 

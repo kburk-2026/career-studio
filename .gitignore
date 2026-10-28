@@ -19,3 +19,6 @@ private/
 node_modules/
 .vercel/
 .DS_Store
+
+# Local-only mockup built from real records
+public/mockup/

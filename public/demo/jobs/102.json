@@ -23,5 +23,24 @@
       "status": "APPLIED",
       "at": "2026-10-14"
     }
-  ]
+  ],
+  "fit_breakdown": {
+    "core": 3,
+    "shape": 3,
+    "domain": 3,
+    "scope": 3,
+    "tools": 3,
+    "quals": 4
+  },
+  "pref_match": [
+    {
+      "status": "ok",
+      "text": "Hybrid, matches your preference"
+    },
+    {
+      "status": "ok",
+      "text": "Higher education: preferred industry"
+    }
+  ],
+  "location": "Hybrid"
 }

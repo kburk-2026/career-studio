@@ -4,47 +4,109 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Career Studio</title>
-<meta name="description" content="A private job-search dashboard and evidence-grounded AI interview coach.">
+<meta name="description" content="A private job-search workspace: tailored resumes, fit reviews, and application answers grounded in verified experience.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="demo-banner hidden" id="demoBanner" role="note">
-  <b>Demo mode.</b> Everything here is a fictional candidate and fictional employers. Real records live only behind a private sign-in.
-  <button class="linkbtn hidden" id="signInBtn">Owner sign in</button>
-</div>
+<div class="demo-banner hidden" id="demoBanner" role="note"><b>Demo.</b> A fictional candidate and fictional employers. Changes here are not saved. <button class="linkbtn hidden" id="signInBtn">Owner sign in</button></div>
 <div class="shell">
   <aside class="side">
-    <div class="brand"><div class="brandmark" id="brandmark">C</div><span class="brandtext">Career Studio</span></div>
+    <div class="brandmark" aria-hidden="true">C</div>
     <nav class="nav" aria-label="Main navigation">
-      <button class="active" data-view="applications"><span class="ico">▦</span><span class="navlabel">Applications</span></button>
-      <button data-view="skills"><span class="ico">✦</span><span class="navlabel">Skills profile</span></button>
+      <button class="active" data-view="applications">Applications</button>
+      <button data-view="resumes">Resumes</button>
+      <button data-view="profile">Profile</button>
+      <button data-view="start">Start</button>
     </nav>
-    <div class="sidebottom"><div class="profile-mini"><div class="avatar" id="avatar">C</div><div class="usertext"><b id="candidateName">Candidate</b><br><span id="accountLine">Job search workspace</span></div></div></div>
+    <button class="signout hidden" id="signOutBtn">Sign out</button>
+    <div class="avatar" id="avatar" title="Workspace">C</div>
   </aside>
   <main>
+
+    <!-- APPLICATIONS -->
     <section id="applications" class="view active">
-      <div class="top"><div><div class="eyebrow">Career Studio / Overview</div><h1>Your job search</h1><p class="sub">Submitted applications, outcomes, and follow-up answers in one place.</p></div><div class="topright"><div class="updated" id="updated">Loading records…</div><button class="linkbtn hidden" id="signOutBtn">Sign out</button></div></div>
-      <div class="stats" id="stats"></div>
-      <div class="panel">
-        <div class="toolbar">
-          <label class="search"><span>⌕</span><input id="search" type="search" placeholder="Search company or role" aria-label="Search applications"></label>
-          <select id="statusFilter" aria-label="Filter by outcome"><option value="all">All outcomes</option><option value="APPLIED">Applied</option><option value="INTERVIEWING">Interviewing</option><option value="OFFER">Offer</option><option value="EMPLOYER_REJECTED">Employer declined</option></select>
-          <select id="sort" aria-label="Sort applications"><option value="date">Most recent</option><option value="fit">Highest fit</option><option value="company">Company A to Z</option></select>
-          <span class="count" id="count"></span>
-        </div>
-        <div class="table-wrap"><table><thead><tr><th>Company and role</th><th>Fit</th><th>Applied</th><th>Status</th><th>Questions</th></tr></thead><tbody id="rows"></tbody></table></div>
+      <div class="cmd"><label class="prompt"><b>&gt;</b><input id="search" type="search" placeholder="search company or role" aria-label="Search applications"></label><button class="btn primary" id="addJob">Add a job</button></div>
+      <section class="figures" id="figs" aria-label="Summary"></section>
+      <div class="toolbar">
+        <select id="statusFilter" aria-label="Filter by status"></select>
+        <select id="sort" aria-label="Sort"><option value="date">Most recent</option><option value="fit">Highest fit</option><option value="company">Company A to Z</option></select>
+        <span class="count" id="count">Loading…</span>
       </div>
+      <table><thead><tr><th>Company / role</th><th>Fit</th><th>Applied</th><th>Status</th><th>Questions</th></tr></thead><tbody id="rows"></tbody></table>
     </section>
-    <section id="skills" class="view">
-      <div class="top"><div><div class="eyebrow">Career Studio / Profile</div><h1>Skills profile</h1><p class="sub">Your reusable experience and strengths for future applications.</p></div></div>
-      <div class="syncnote" id="syncnote"></div>
-      <div class="profile-head"><div><span class="status s-applied" id="profileSource">Source: profile</span><p class="sub" style="margin-top:9px">Edit by group. Use one item per line.</p></div><div class="profile-actions"><button class="btn hidden" id="cancelEdit">Cancel</button><button class="btn" id="editProfile">Edit profile</button><button class="btn primary hidden" id="saveProfile">Save draft</button></div></div>
-      <div class="skillgrid" id="skillgrid"></div>
+
+    <!-- RESUMES -->
+    <section id="resumes" class="view">
+      <div class="top"><div><div class="eyebrow">Resumes</div><h1>Resumes and letters</h1><p class="sub">Everything you uploaded or the app generated, linked to the job it was made for.</p></div>
+        <div class="seg" id="resFilter"><button class="on" data-f="all">All</button><button data-f="uploaded">Uploaded</button><button data-f="generated">Generated</button><button data-f="letter">Cover letters</button></div></div>
+      <div class="reslist" id="reslist"></div>
+      <p class="hint">Documents sent to an employer are locked. Editing one makes a copy, so you always know exactly what each employer received.</p>
+    </section>
+
+    <!-- PROFILE -->
+    <section id="profile" class="view">
+      <div class="top"><div><div class="eyebrow">Profile</div><h1>Your profile</h1><p class="sub">The more complete this is, the sharper your fit ratings and generated documents.</p></div></div>
+      <div class="card">
+        <h3>Profile strength</h3>
+        <div class="meter"><span id="strengthBar" style="width:0%"></span></div>
+        <p class="sub" id="strengthText"></p>
+        <ul class="tips" id="strengthTips"></ul>
+      </div>
+      <form class="card" id="prefsForm">
+        <h3>Job preferences</h3><p class="sub">Used for the preference match shown next to fit. Never shown to employers.</p>
+        <div class="formgrid">
+          <div class="field"><label for="p_target_titles">Target titles</label><input id="p_target_titles" name="target_titles" maxlength="1000" placeholder="e.g. Senior Product Manager; Director, Learning Technology"></div>
+          <div class="field"><label for="p_level">Level</label><select id="p_level" name="level"><option value="">Not set</option><option>Individual contributor</option><option>Manager</option><option>Senior / Lead</option><option>Director</option><option>Executive</option></select></div>
+          <div class="field"><label for="p_salary_min">Desired salary, minimum</label><input id="p_salary_min" name="salary_min" inputmode="numeric" placeholder="e.g. 110000"><div class="help">Used only to flag low-paying postings.</div></div>
+          <div class="field"><label for="p_salary_target">Desired salary, target</label><input id="p_salary_target" name="salary_target" inputmode="numeric" placeholder="e.g. 95000"></div>
+          <div class="field"><label for="p_employment_type">Employment type</label><select id="p_employment_type" name="employment_type"><option value="">Not set</option><option>Full-time</option><option>Full-time or contract</option><option>Contract</option><option>Part-time</option></select></div>
+          <div class="field"><label for="p_arrangement">Work arrangement</label><select id="p_arrangement" name="arrangement"><option value="">Not set</option><option>Remote</option><option>Remote or hybrid</option><option>Hybrid</option><option>On-site</option><option>Any</option></select></div>
+          <div class="field"><label for="p_location">Location and relocation</label><input id="p_location" name="location" maxlength="1000" placeholder="e.g. Remote (United States); not relocating"></div>
+          <div class="field"><label for="p_industries_preferred">Preferred industries</label><input id="p_industries_preferred" name="industries_preferred" maxlength="1000" placeholder="e.g. Higher education, EdTech"></div>
+          <div class="field"><label for="p_industries_avoid">Industries to avoid</label><input id="p_industries_avoid" name="industries_avoid" maxlength="1000" placeholder="e.g. gambling"></div>
+          <div class="field"><label for="p_company_size">Company size</label><select id="p_company_size" name="company_size"><option value="">Any</option><option>Startup (under 100)</option><option>Mid-size (100 to 1,000)</option><option>Large (1,000+)</option></select></div>
+          <div class="field"><label for="p_travel">Travel</label><select id="p_travel" name="travel"><option value="">Not set</option><option>None</option><option>Up to 10%</option><option>Up to 25%</option><option>Any</option></select></div>
+          <div class="field"><label for="p_needs_sponsorship">Needs visa sponsorship</label><select id="p_needs_sponsorship" name="needs_sponsorship"><option value="">Not set</option><option value="false">No</option><option value="true">Yes</option></select></div>
+          <div class="field"><label for="p_earliest_start">Earliest start</label><input id="p_earliest_start" name="earliest_start" maxlength="1000" placeholder="e.g. 2 weeks notice"></div>
+          <div class="field wide"><label for="p_must_haves">Must-haves and dealbreakers</label><textarea id="p_must_haves" name="must_haves" rows="2" maxlength="1000"></textarea></div>
+        </div>
+        <div class="savebar"><button class="btn primary" type="submit">Save preferences</button><span class="note" id="prefsStatus"></span></div>
+      </form>
+      <div class="card">
+        <h3>Skills</h3><p class="sub">Add a skill any time. New skills stay <span class="unverified">unverified</span> until you confirm them, and only confirmed skills are used in documents.</p>
+        <div id="skillGroups"></div>
+        <form class="addrow" id="skillForm"><input id="newSkill" maxlength="1000" placeholder="Add a skill, e.g. Articulate Rise" aria-label="New skill"><input id="newSkillGroup" list="skillGroupList" maxlength="120" placeholder="Group" aria-label="Skill group"><datalist id="skillGroupList"></datalist><button class="btn primary" type="submit">Add</button></form>
+      </div>
+      <div class="card">
+        <h3>Results and evidence</h3><p class="sub">Measured accomplishments. These are the only numbers the app may use in resumes, letters, and answers.</p>
+        <ul class="tips" id="results"></ul>
+        <form class="addrow" id="resultForm"><input id="newResult" maxlength="1000" placeholder="e.g. Cut review rounds from 3 to 2 across 40 courses" aria-label="New result"><input id="newResultGroup" maxlength="120" placeholder="Employer" aria-label="Employer"><button class="btn primary" type="submit">Add</button></form>
+      </div>
+      <div class="card">
+        <h3>Education and certifications</h3>
+        <ul class="tips" id="education"></ul>
+        <form class="addrow" id="eduForm"><input id="newEdu" maxlength="1000" placeholder="e.g. Certificate in Product Management, Cornell University" aria-label="New education"><span></span><button class="btn primary" type="submit">Add</button></form>
+      </div>
+      <button class="btn" id="signOutBtn2" hidden>Sign out</button>
+    </section>
+
+    <!-- START -->
+    <section id="start" class="view">
+      <div class="top"><div><div class="eyebrow">Start</div><h1>Build your profile</h1><p class="sub">Start from a resume you already have, or from your skills. Either way you end up with both.</p></div></div>
+      <div class="cards2">
+        <button class="bigcard" id="pickUpload"><div class="bigicon">01 / Upload</div><h3>Upload a resume</h3><p>We read it, pull out your roles, skills, and measurable results, and you confirm each one before it joins your profile.</p></button>
+        <button class="bigcard" id="pickSkills"><div class="bigicon">02 / Build</div><h3>Start from your skills</h3><p>List your skills and past roles. We draft a resume from them that you can edit and download.</p></button>
+      </div>
+      <p class="hint" id="startNote">Nothing extracted or written by AI counts as true until you confirm it.</p>
     </section>
   </main>
 </div>
-<div class="drawer-bg" id="drawerBg"><aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Application details"></aside></div>
-<div class="toast hidden" id="toast" role="status"></div>
+<div class="drawer-bg" id="drawerBg"><aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Details"></aside></div>
+<div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
+<div id="printArea" aria-hidden="true"></div>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>

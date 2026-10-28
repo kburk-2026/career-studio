@@ -93,5 +93,28 @@
       }
     ],
     "first_question": "Tell me about a time you introduced an AI-supported workflow to a design team. How did you make sure it was accurate before people relied on it?"
-  }
+  },
+  "fit_breakdown": {
+    "core": 4,
+    "shape": 3,
+    "domain": 3,
+    "scope": 3,
+    "tools": 3,
+    "quals": 3
+  },
+  "pref_match": [
+    {
+      "status": "ok",
+      "text": "Remote, matches your preference"
+    },
+    {
+      "status": "warn",
+      "text": "Salary not listed in posting"
+    },
+    {
+      "status": "ok",
+      "text": "Higher education: preferred industry"
+    }
+  ],
+  "location": "Remote"
 }

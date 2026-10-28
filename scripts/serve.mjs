@@ -31,12 +31,16 @@ async function runApi(req, res, name) {
     return;
   }
   const mod = await import(pathToFileURL(join(API, `${name}.js`)).href);
-  if (req.method !== "GET" || !mod.GET) {
+  const method = req.method;
+  if (!["GET", "POST", "PATCH", "DELETE"].includes(method) || typeof mod[method] !== "function") {
     res.writeHead(405).end("Method not allowed");
     return;
   }
-  const request = new Request(`http://localhost:${PORT}${req.url}`, { headers: req.headers });
-  const response = await mod.GET(request);
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const body = method === "GET" ? undefined : Buffer.concat(chunks);
+  const request = new Request(`http://localhost:${PORT}${req.url}`, { method, headers: req.headers, body });
+  const response = await mod[method](request);
   res.writeHead(response.status, Object.fromEntries(response.headers));
   res.end(Buffer.from(await response.arrayBuffer()));
 }

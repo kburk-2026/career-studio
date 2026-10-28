@@ -15,7 +15,9 @@ import { loadEnv } from "./_env.mjs";
 const env = loadEnv();
 const URL_ = env.SUPABASE_URL;
 const TABLES = ["jobs", "application_answers", "status_history", "profile_facts",
-  "coach_sessions", "coach_turns", "ai_usage"];
+  "coach_sessions", "coach_turns", "ai_usage", "profile_prefs", "documents"];
+// profile_prefs is keyed by user, not id.
+const KEY = { profile_prefs: "user_id" };
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -49,7 +51,7 @@ async function findUser(email) {
 async function main() {
   // Tables exist and the service role can reach them.
   for (const t of TABLES) {
-    const r = await svc(`/rest/v1/${t}?select=id&limit=1`);
+    const r = await svc(`/rest/v1/${t}?select=${KEY[t] || "id"}&limit=1`);
     check(`table ${t} reachable by local scripts`, r.status === 200, `HTTP ${r.status}`);
   }
   if (results.includes(false)) return;
@@ -74,6 +76,16 @@ async function main() {
   await ins("profile_facts", { group_title: "canary", text: "RLS canary" });
   await ins("coach_turns", { session_id: sess.id, position: 0, kind: "main", question: "canary" });
   await ins("ai_usage", { model: "canary", input_tokens: 0, output_tokens: 0, cost_usd: 0 });
+  const doc = (await ins("documents", { job_id: job.id, kind: "resume", source: "generated", title: "RLS canary", content: { summary: "canary" } })).data[0];
+  // Keep any real preferences row; only add one if none exists.
+  const hadPrefs = (await svc(`/rest/v1/profile_prefs?user_id=eq.${owner.id}&select=user_id`)).data.length > 0;
+  if (!hadPrefs) await ins("profile_prefs", { location: "RLS canary" });
+  const objectPath = `${owner.id}/rls-canary-${randomBytes(4).toString("hex")}.pdf`;
+  const up = await fetch(`${URL_}/storage/v1/object/docs/${objectPath}`, {
+    method: "POST", headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/pdf" },
+    body: "%PDF-1.4 canary",
+  });
+  check("canary file stored in the private bucket", up.ok, `HTTP ${up.status}`);
 
   // Throwaway second user, signed in with a random password.
   const email = `rls-check-${randomBytes(4).toString("hex")}@example.com`;
@@ -90,7 +102,7 @@ async function main() {
 
     // Sanity: the canaries really are there, so "zero rows" below means something.
     for (const t of TABLES) {
-      const r = await svc(`/rest/v1/${t}?select=id&user_id=eq.${owner.id}`);
+      const r = await svc(`/rest/v1/${t}?select=${KEY[t] || "id"}&user_id=eq.${owner.id}`);
       check(`canary present in ${t}`, Array.isArray(r.data) && r.data.length > 0);
     }
 
@@ -108,6 +120,28 @@ async function main() {
       check(`${who} cannot delete the owner's job`, d.status >= 400 || (Array.isArray(d.data) && d.data.length === 0), `HTTP ${d.status}`);
     }
 
+    // Private files: neither visitor can read, sign, list, or add to the owner's folder.
+    for (const [who, token] of [["anonymous visitor", env.SUPABASE_ANON_KEY], ["second signed-in user", login.data.access_token]]) {
+      const h = { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` };
+      const get = await fetch(`${URL_}/storage/v1/object/docs/${objectPath}`, { headers: h });
+      check(`${who} cannot download the owner's file`, get.status >= 400, `HTTP ${get.status}`);
+      const sign = await fetch(`${URL_}/storage/v1/object/sign/docs/${objectPath}`, { method: "POST", headers: { ...h, "Content-Type": "application/json" }, body: JSON.stringify({ expiresIn: 60 }) });
+      check(`${who} cannot create a download link for it`, sign.status >= 400, `HTTP ${sign.status}`);
+      const listing = await fetch(`${URL_}/storage/v1/object/list/docs`, { method: "POST", headers: { ...h, "Content-Type": "application/json" }, body: JSON.stringify({ prefix: `${owner.id}/` }) });
+      const items = listing.ok ? await listing.json() : [];
+      check(`${who} sees no files in the owner's folder`, !Array.isArray(items) || items.length === 0, `HTTP ${listing.status}`);
+      const put = await fetch(`${URL_}/storage/v1/object/docs/${owner.id}/intruder.pdf`, { method: "POST", headers: { ...h, "Content-Type": "application/pdf" }, body: "%PDF-1.4 x" });
+      check(`${who} cannot upload into the owner's folder`, put.status >= 400, `HTTP ${put.status}`);
+    }
+
+    // Sent documents stay frozen, even for the owner's own scripts.
+    await svc(`/rest/v1/documents?id=eq.${doc.id}`, { method: "PATCH", body: { sent: true } });
+    const edit = await svc(`/rest/v1/documents?id=eq.${doc.id}`, { method: "PATCH", body: { content: { summary: "changed" } } });
+    check("a sent document cannot be edited", edit.status >= 400, `HTTP ${edit.status}`);
+
+    const anonUsage = await anon("/rest/v1/rpc/record_ai_usage", { method: "POST", body: { p_model: "x", p_input: 0, p_output: 0, p_cost: 0 } });
+    check("anonymous visitor cannot record AI usage", anonUsage.status >= 400, `HTTP ${anonUsage.status}`);
+
     const a = await other("/rest/v1/ai_usage", { method: "POST", body: { user_id: stranger.id, model: "x", input_tokens: 0, output_tokens: 0, cost_usd: 0 } });
     check("signed-in user cannot write AI usage rows", a.status >= 400, `HTTP ${a.status}`);
 
@@ -116,7 +150,11 @@ async function main() {
   } finally {
     await svc(`/rest/v1/ai_usage?user_id=eq.${owner.id}&model=eq.canary`, { method: "DELETE" });
     await svc(`/rest/v1/profile_facts?user_id=eq.${owner.id}&group_title=eq.canary`, { method: "DELETE" });
+    // Only the service role may delete a sent document, which is what cleans up the canary.
+    await svc(`/rest/v1/documents?id=eq.${doc.id}`, { method: "DELETE" });
     await svc(`/rest/v1/jobs?id=eq.${job.id}`, { method: "DELETE" }); // cascades to answers, history, coach rows
+    if (!hadPrefs) await svc(`/rest/v1/profile_prefs?user_id=eq.${owner.id}`, { method: "DELETE" });
+    await fetch(`${URL_}/storage/v1/object/docs/${objectPath}`, { method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` } });
     await svc(`/auth/v1/admin/users/${stranger.id}`, { method: "DELETE" });
     console.log("info  removed canary rows and the test user");
   }

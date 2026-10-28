@@ -1,17 +1,104 @@
-// GET /api/profile -> { source_label, groups: [{ title, items: [{ text, verified }] }] }
-import { handle, json, requireOwner, rest } from "./_lib/supabase.js";
+// GET    /api/profile            -> { source_label, groups, facts, prefs }
+// PATCH  /api/profile            -> save job preferences
+// POST   /api/profile            -> add a fact (always starts unverified)
+// PATCH  /api/profile?fact=12    -> confirm, or edit (an edit returns it to unverified)
+// DELETE /api/profile?fact=12    -> remove a fact
+import { handle, json, requireOwner, rest, restWrite, readJson, idParam, v, HttpError } from "./_lib/supabase.js";
 
+export const KINDS = ["skill", "result", "education", "role", "summary"];
+
+export const PREF_FIELDS = {
+  target_titles: "text", level: "text", salary_min: "int", salary_target: "int", employment_type: "text",
+  arrangement: "text", location: "text", industries_preferred: "text", industries_avoid: "text",
+  company_size: "text", travel: "text", needs_sponsorship: "bool", earliest_start: "text", must_haves: "text",
+};
+
+// Skills grouped for the skills card (kept for the demo-compatible shape).
 export function toGroups(rows) {
   const groups = new Map();
   for (const r of rows) {
+    if ((r.kind || "skill") !== "skill") continue;
     if (!groups.has(r.group_title)) groups.set(r.group_title, []);
-    groups.get(r.group_title).push({ text: r.text, verified: r.verified });
+    groups.get(r.group_title).push({ id: r.id, text: r.text, verified: r.verified });
   }
   return [...groups].map(([title, items]) => ({ title, items }));
 }
 
+export function cleanPrefs(body) {
+  const out = {};
+  for (const [field, type] of Object.entries(PREF_FIELDS)) {
+    if (!(field in body)) continue;
+    const label = field.replace(/_/g, " ");
+    out[field] = type === "int" ? v.int(body[field], label, { max: 10_000_000 })
+      : type === "bool" ? v.bool(body[field], label)
+      : v.text(body[field], label, { max: 1000 });
+  }
+  return out;
+}
+
 export const GET = handle(async (request) => {
   const session = await requireOwner(request);
-  const rows = await rest(session, "profile_facts?select=group_title,text,verified&order=group_title,position");
-  return json(200, { source_label: "your profile", groups: toGroups(rows) });
+  const [facts, prefs] = await Promise.all([
+    rest(session, "profile_facts?select=id,kind,group_title,position,text,verified,source&order=kind,group_title,position,id"),
+    rest(session, `profile_prefs?select=${Object.keys(PREF_FIELDS).join(",")}`),
+  ]);
+  return json(200, {
+    source_label: "your profile",
+    groups: toGroups(facts),
+    facts: facts.map(({ id, kind, group_title, text, verified, source }) => ({ id, kind, group: group_title, text, verified, source })),
+    prefs: prefs[0] || {},
+  });
+});
+
+export const POST = handle(async (request) => {
+  const session = await requireOwner(request);
+  const body = await readJson(request);
+  const row = {
+    kind: v.oneOf(body.kind ?? "skill", "Kind", KINDS),
+    group_title: v.text(body.group, "Group", { max: 120 }) || "Other",
+    text: v.text(body.text, "Text", { max: 1000, required: true }),
+    verified: false, // anything new is a claim until the owner confirms it
+    source: "app",
+  };
+  const [saved] = await restWrite(session, "POST", "profile_facts?select=id,kind,group_title,text,verified,source", row);
+  return json(201, { ...saved, group: saved.group_title });
+});
+
+export const PATCH = handle(async (request) => {
+  const session = await requireOwner(request);
+  const body = await readJson(request);
+
+  if (!new URL(request.url).searchParams.has("fact")) {
+    const prefs = cleanPrefs(body);
+    if (!Object.keys(prefs).length) throw new HttpError(400, "Nothing to change.");
+    const saved = await restWrite(session, "POST", "profile_prefs?on_conflict=user_id",
+      { user_id: session.user.id, ...prefs }, { upsert: true });
+    return json(200, saved[0] || {});
+  }
+
+  const id = idParam(request, "fact");
+  const [current] = await rest(session, `profile_facts?id=eq.${id}&select=id,text,verified,history,group_title`);
+  if (!current) throw new HttpError(404, "Not found.");
+  const row = {};
+  if ("text" in body) {
+    const text = v.text(body.text, "Text", { max: 1000, required: true });
+    if (text !== current.text) {
+      row.text = text;
+      row.verified = false;
+      row.history = [...(current.history || []), { text: current.text, verified: current.verified, at: new Date().toISOString() }];
+    }
+  }
+  if ("group" in body) row.group_title = v.text(body.group, "Group", { max: 120, required: true });
+  if ("verified" in body && !("text" in row)) row.verified = v.bool(body.verified, "Verified");
+  if (!Object.keys(row).length) return json(200, { id, unchanged: true });
+  const saved = await restWrite(session, "PATCH", `profile_facts?id=eq.${id}&select=id,kind,group_title,text,verified,source`, row);
+  return json(200, { ...saved[0], group: saved[0].group_title });
+});
+
+export const DELETE = handle(async (request) => {
+  const session = await requireOwner(request);
+  const id = idParam(request, "fact");
+  const gone = await restWrite(session, "DELETE", `profile_facts?id=eq.${id}&select=id`);
+  if (!gone.length) throw new HttpError(404, "Not found.");
+  return json(200, { deleted: id });
 });

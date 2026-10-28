@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
-import { SENT_STATUSES } from "../public/js/format.js";
+import { STATUS, fitFromBreakdown } from "../public/js/format.js";
+import { docText } from "../public/js/doc.js";
 
 const read = (p) => JSON.parse(readFileSync(new URL(`../public/demo/${p}`, import.meta.url), "utf8"));
 const list = read("applications.json");
@@ -12,6 +13,7 @@ const details = Object.fromEntries(
 test("every demo file is marked fictional", () => {
   assert.equal(list.fictional, true);
   assert.equal(read("profile.json").fictional, true);
+  assert.equal(read("documents.json").fictional, true);
   for (const d of Object.values(details)) assert.equal(d.fictional, true, `job ${d.id}`);
 });
 
@@ -22,7 +24,8 @@ test("list rows match their detail files", () => {
     assert.equal(d.company, j.company);
     assert.equal(d.status, j.status);
     assert.equal(d.answers.length, j.answer_count, `answer_count for ${j.id}`);
-    assert.ok(SENT_STATUSES.has(j.status), `unsent status on ${j.id}`);
+    assert.ok(STATUS[j.status], `unknown status on ${j.id}`);
+    if (d.fit_breakdown) assert.equal(fitFromBreakdown(d.fit_breakdown), j.fit_score, `fit breakdown for ${j.id}`);
   }
 });
 
@@ -48,4 +51,23 @@ test("coach numbers are grounded in the demo profile", () => {
       }
     }
   }
+});
+
+test("demo documents use only profile numbers and no em or en dashes", () => {
+  const profileNumbers = new Set(JSON.stringify(read("profile.json")).match(/\d+/g));
+  for (const doc of read("documents.json").documents) {
+    if (!doc.content) continue;
+    const text = docText(doc.kind, doc.content);
+    assert.ok(!/[\u2013\u2014]/.test(text), `dash in ${doc.title}`);
+    for (const n of text.match(/\d+/g) || []) {
+      if (/^(19|20)\d\d$/.test(n)) continue; // employment years
+      assert.ok(profileNumbers.has(n), `${doc.title} uses ${n}, which is not in the profile`);
+    }
+  }
+});
+
+test("demo facts include unverified items so the confirm flow is visible", () => {
+  const facts = read("profile.json").facts;
+  assert.ok(facts.some((f) => !f.verified));
+  assert.ok(new Set(facts.map((f) => f.id)).size === facts.length, "fact ids are unique");
 });

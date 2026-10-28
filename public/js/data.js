@@ -41,7 +41,42 @@ export function demoSource() {
   };
 }
 
-// Phase 3 adds apiSource() here. Until then every visitor sees the demo.
-export function pickSource() {
-  return demoSource();
+// The signed-in owner's real records, read through the API as that user.
+export function apiSource(getToken) {
+  async function api(path) {
+    const token = await getToken();
+    if (!token) throw Object.assign(new Error("Your session has expired. Sign in again."), { status: 401 });
+    const res = await fetch(`api/${path}`, { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(body.error || `Request failed (${res.status}).`), { status: res.status });
+    return body;
+  }
+  let listing = null;
+  const list = () => (listing ||= api("jobs"));
+  return {
+    mode: "live",
+    async meta() {
+      return (await list()).meta;
+    },
+    async listApplications() {
+      return (await list()).jobs;
+    },
+    async getApplication(id) {
+      if (!Number.isInteger(id)) return null;
+      try {
+        return await api(`jobs?id=${id}`);
+      } catch (e) {
+        if (e.status === 404) return null;
+        throw e;
+      }
+    },
+    async getProfile() {
+      return api("profile");
+    },
+  };
+}
+
+// Signed-in owner gets live data; every other visitor sees the demo.
+export function pickSource({ signedIn, getToken }) {
+  return signedIn ? apiSource(getToken) : demoSource();
 }

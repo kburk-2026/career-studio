@@ -16,3 +16,13 @@
 .concern{margin:0;color:#505d6d;font-size:12px}
 .unverified{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:999px;background:var(--amber-soft);color:var(--amber);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
 @media(max-width:640px){.match-grid{grid-template-columns:1fr}.nav .navlabel{display:inline}}
+
+/* Added in Phase 3 */
+.linkbtn{border:0;background:none;padding:0;margin-left:8px;font:inherit;font-weight:700;color:var(--blue);text-decoration:underline;cursor:pointer}
+.topright{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.topright .linkbtn{margin:0;font-size:12px}
+.signin-form{display:grid;gap:10px;margin-top:6px}
+.signin-form input{border:1px solid var(--line);border-radius:9px;padding:10px 12px;font:inherit}
+.signin-note{font-size:12px;color:var(--muted);margin:0}
+.notice{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--blue-soft);font-size:13px}
+@media(max-width:640px){.topright{align-items:flex-start;margin-top:8px}}

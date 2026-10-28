@@ -1,7 +1,9 @@
 import { pickSource } from "./data.js";
 import { STATUS, esc, statusClass, formatDate, filterJobs, computeStats } from "./format.js";
+import { loadConfig, consumeRedirect, hasSession, getAccessToken, sendMagicLink, signOut } from "./auth.js";
 
-const source = pickSource();
+const linkError = consumeRedirect();
+const source = pickSource({ signedIn: hasSession(), getToken: getAccessToken });
 const $ = (s, root = document) => root.querySelector(s);
 
 let jobs = [];
@@ -125,7 +127,7 @@ async function openDetail(id) {
 
 function openCoach(job, d) {
   const c = d.coach;
-  const draftKey = `coach_${job.id}_q1`;
+  const draftKey = `${source.mode}_coach_${job.id}_q1`;
   const stories = c.stories
     .map((s, i) => `<article class="story"><b>${i + 1}. ${esc(s.title)}</b><p><b>S/T:</b> ${esc(s.situation)} <b>A:</b> ${esc(s.action)} <b>R:</b> ${esc(s.result)}</p></article>`)
     .join("");
@@ -157,7 +159,7 @@ function openCoach(job, d) {
 
 /* ---------- Skills profile ---------- */
 
-const PROFILE_DRAFT_KEY = "skill_profile_draft";
+const PROFILE_DRAFT_KEY = `${source.mode}_skill_profile_draft`;
 
 function currentGroups() {
   const draft = store.get(PROFILE_DRAFT_KEY);
@@ -169,6 +171,11 @@ function currentGroups() {
 
 function renderProfile() {
   const groups = currentGroups();
+  $("#editProfile").classList.toggle("hidden", editing || !groups.length);
+  if (!groups.length) {
+    $("#skillgrid").innerHTML = `<div class="notice">No profile facts are stored yet. Importing and editing your profile arrives in Phase 5.</div>`;
+    return;
+  }
   $("#skillgrid").innerHTML = groups
     .map(
       (g, i) => `<article class="skillcard"><h3>${esc(g.title)}</h3>${
@@ -202,6 +209,36 @@ function saveProfileDraft() {
   showToast(ok ? "Draft saved in this browser. New or edited lines are marked unverified." : "This browser blocked saving the draft.");
 }
 
+/* ---------- Sign-in ---------- */
+
+function openSignIn() {
+  openDrawer(`
+    <div class="drawer-head"><div><div class="eyebrow">Career Studio</div><h2>Owner sign in</h2><p class="role">This workspace is private to its owner.</p></div><button class="close" aria-label="Close">×</button></div>
+    <form class="signin-form" id="signInForm">
+      <label for="signInEmail"><b>Email</b></label>
+      <input id="signInEmail" type="email" autocomplete="email" required>
+      <button class="btn primary" type="submit">Email me a sign-in link</button>
+      <p class="signin-note" id="signInNote">You'll get a one-time link. Open it in this browser.</p>
+    </form>`);
+  $("#signInForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const button = $("#signInForm button");
+    button.disabled = true;
+    try {
+      await sendMagicLink($("#signInEmail").value.trim());
+      $("#signInNote").textContent = "If that email is allowed, a sign-in link is on its way. Check your inbox.";
+    } catch (err) {
+      $("#signInNote").textContent = err.message;
+      button.disabled = false;
+    }
+  };
+}
+
+async function doSignOut() {
+  await signOut();
+  location.reload();
+}
+
 /* ---------- Wiring ---------- */
 
 function wire() {
@@ -217,10 +254,19 @@ function wire() {
   $("#editProfile").onclick = () => setEditing(true);
   $("#cancelEdit").onclick = () => setEditing(false);
   $("#saveProfile").onclick = saveProfileDraft;
+  $("#signInBtn").onclick = openSignIn;
+  $("#signOutBtn").onclick = doSignOut;
 }
 
 async function init() {
   wire();
+  if (linkError) showToast(`Sign-in link problem: ${linkError}`);
+  if (source.mode === "demo") {
+    // Offer sign-in only where the server has it configured.
+    loadConfig().then((cfg) => { if (cfg) $("#signInBtn").classList.remove("hidden"); });
+  } else {
+    $("#signOutBtn").classList.remove("hidden");
+  }
   try {
     const [meta, list, prof] = await Promise.all([source.meta(), source.listApplications(), source.getProfile()]);
     jobs = list;
@@ -230,6 +276,7 @@ async function init() {
     $("#candidateName").textContent = name;
     $("#avatar").textContent = name.charAt(0);
     $("#updated").textContent = `Updated ${formatDate(meta.generated_at)}`;
+    if (meta.email) $("#accountLine").textContent = meta.email;
     $("#profileSource").textContent = `Source: ${prof.source_label || "profile"}`;
     $("#syncnote").innerHTML = `<b>Profile sync preview:</b> Edits save as a draft in this browser only. Real saving, with confirmation and undo, arrives in Phase 5.`;
     renderStats();
@@ -237,7 +284,15 @@ async function init() {
     renderProfile();
   } catch (e) {
     $("#updated").textContent = "Data unavailable";
-    $("#rows").innerHTML = `<tr><td colspan="5" class="empty">${esc(e.message)} Run <code>npm run dev</code> and open the local preview.</td></tr>`;
+    if (e.status === 401 || e.status === 403) {
+      // Expired or not-allowed session: drop it and fall back to the demo.
+      await signOut();
+      $("#rows").innerHTML = `<tr><td colspan="5" class="empty">${esc(e.message)} <button class="linkbtn" id="reloadDemo">Back to the demo</button></td></tr>`;
+      $("#reloadDemo").onclick = () => location.reload();
+      return;
+    }
+    const hint = source.mode === "demo" ? " Run <code>npm run dev</code> and open the local preview." : "";
+    $("#rows").innerHTML = `<tr><td colspan="5" class="empty">${esc(e.message)}${hint}</td></tr>`;
   }
 }
 

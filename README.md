@@ -24,8 +24,8 @@ The guardrails are code, not just prompt wording:
 | Phase | What | State |
 |---|---|---|
 | 1 | Repo, app shell, fictional demo, privacy guard | **Done** |
-| 2 | Supabase: schema, row-level security, sign-in | **In progress** (schema + RLS live and tested) |
-| 3 | Vercel: hosting and authenticated API | Planned |
+| 2 | Supabase: schema, row-level security, sign-in | **Done** |
+| 3 | Vercel: hosting and authenticated API | **In progress** (sign-in + API built) |
 | 4 | Live AI coach (Claude, behind a provider adapter) | Planned |
 | 5 | Real dashboard data and profile editing | Planned |
 | 6 | Security audit, demo recording, case study | Planned |

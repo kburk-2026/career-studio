@@ -10,6 +10,7 @@
 <body>
 <div class="demo-banner hidden" id="demoBanner" role="note">
   <b>Demo mode.</b> Everything here is a fictional candidate and fictional employers. Real records live only behind a private sign-in.
+  <button class="linkbtn hidden" id="signInBtn">Owner sign in</button>
 </div>
 <div class="shell">
   <aside class="side">
@@ -18,11 +19,11 @@
       <button class="active" data-view="applications"><span class="ico">▦</span><span class="navlabel">Applications</span></button>
       <button data-view="skills"><span class="ico">✦</span><span class="navlabel">Skills profile</span></button>
     </nav>
-    <div class="sidebottom"><div class="profile-mini"><div class="avatar" id="avatar">C</div><div class="usertext"><b id="candidateName">Candidate</b><br>Job search workspace</div></div></div>
+    <div class="sidebottom"><div class="profile-mini"><div class="avatar" id="avatar">C</div><div class="usertext"><b id="candidateName">Candidate</b><br><span id="accountLine">Job search workspace</span></div></div></div>
   </aside>
   <main>
     <section id="applications" class="view active">
-      <div class="top"><div><div class="eyebrow">Career Studio / Overview</div><h1>Your job search</h1><p class="sub">Submitted applications, outcomes, and follow-up answers in one place.</p></div><div class="updated" id="updated">Loading records…</div></div>
+      <div class="top"><div><div class="eyebrow">Career Studio / Overview</div><h1>Your job search</h1><p class="sub">Submitted applications, outcomes, and follow-up answers in one place.</p></div><div class="topright"><div class="updated" id="updated">Loading records…</div><button class="linkbtn hidden" id="signOutBtn">Sign out</button></div></div>
       <div class="stats" id="stats"></div>
       <div class="panel">
         <div class="toolbar">

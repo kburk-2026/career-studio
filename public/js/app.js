@@ -329,13 +329,14 @@ function openAddJob() {
 
 function renderResumes() {
   const shown = docs.filter((d) => resFilter === "all" || (resFilter === "letter" ? d.kind === "letter" : d.source === resFilter && d.kind === "resume"));
+  const base = docs.filter((d) => d.source === "uploaded" && d.kind === "resume" && !d.job_id).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
   $("#reslist").innerHTML = shown.length ? shown.map((d) => {
     const job = jobs.find((j) => j.id === d.job_id);
     return `<div class="resrow"><div class="ico2">${d.kind === "letter" ? "LTR" : "CV"}</div>
-      <div><b>${esc(d.title)}<span class="badge ${d.source === "uploaded" ? "b-up" : "b-gen"}">${d.source === "uploaded" ? "Uploaded" : d.source === "built" ? "Built" : "Generated"}</span>${d.sent ? '<span class="badge b-sent">Sent</span>' : d.source !== "uploaded" ? '<span class="badge b-draft">Draft</span>' : ""}</b>
+      <div><b>${esc(d.title)}<span class="badge ${d.source === "uploaded" ? "b-up" : "b-gen"}">${d.source === "uploaded" ? "Uploaded" : d.source === "built" ? "Built" : "Generated"}</span>${d === base ? '<span class="badge b-sent">Base resume</span>' : ""}${d.sent ? '<span class="badge b-sent">Sent</span>' : d.source !== "uploaded" ? '<span class="badge b-draft">Draft</span>' : ""}</b>
       <small>${esc(d.file_name || "")}${d.file_name ? " &middot; " : ""}${formatDate((d.sent_at || d.created_at || "").slice(0, 10))}${job ? ` &middot; ${esc(job.company)}` : ""}</small></div>
       <div class="btnrow"><button class="btn sm" data-open="${d.id}">Open</button></div></div>`;
-  }).join("") : `<div class="notice">No documents here yet.</div>`;
+  }).join("") : `<div class="notice">No documents here yet.${resFilter === "all" || resFilter === "uploaded" ? " Use Upload resume to add your base resume." : ""}</div>`;
   $$("#reslist [data-open]").forEach((b) => (b.onclick = () => openDoc(Number(b.dataset.open))));
 }
 
@@ -665,6 +666,8 @@ function wire() {
   $("#resultForm").onsubmit = (e) => { e.preventDefault(); addFact("result", $("#newResult"), $("#newResultGroup")); };
   $("#eduForm").onsubmit = (e) => { e.preventDefault(); addFact("education", $("#newEdu")); };
   $("#pickUpload").onclick = openUpload;
+  // From the Resumes tab: the same upload flow, on the Start page.
+  $("#uploadResume").onclick = () => { go("start"); openUpload(); $("#startArea").scrollIntoView({ behavior: "smooth" }); };
   $("#pickSkills").onclick = openBuild;
   $("#signInBtn").onclick = openSignIn;
   $("#signOutBtn").onclick = doSignOut;

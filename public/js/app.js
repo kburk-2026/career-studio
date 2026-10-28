@@ -149,7 +149,8 @@ async function openJob(id) {
     <div class="section"><h3>Tailored documents</h3><div class="docbtns">${docBox("resume")}${docBox("letter")}</div><p class="soon">Written from your confirmed profile and base resume. A resume takes about a minute.</p></div>
     <div class="section"><h3>Application questions</h3><div id="qlist"></div>
       <form class="qform" id="qForm"><input id="qText" maxlength="2000" placeholder="Paste a question from the application" aria-label="Question"><input id="qLimit" type="number" min="1" placeholder="Char limit" aria-label="Character limit"></form>
-      <div class="btnrow" style="margin-top:8px"><button class="btn sm primary" id="qAdd">Add question</button><button class="btn sm" disabled title="${SOON}">Add and draft answer</button></div></div>
+      <div class="btnrow" style="margin-top:8px"><button class="btn sm primary" id="qDraft">Add and draft answer</button><button class="btn sm" id="qAdd">Add without drafting</button></div>
+      <p class="soon">Drafts use your confirmed facts and this posting, and always fit the character limit.</p></div>
     ${d.jd_text ? `<div class="section"><h3>Job posting</h3>${d.source_url ? `<p class="note"><a href="${esc(d.source_url)}" target="_blank" rel="noopener noreferrer">${esc(d.source_url)}</a></p>` : ""}<div class="jd">${esc(d.jd_text)}</div></div>` : ""}
     <div class="section"><h3>Application timeline</h3><ul>${(d.history || []).map((h) => `<li>${esc(STATUS[h.status] || h.status)} &middot; ${formatDate(h.at)}</li>`).join("") || "<li>No changes yet</li>"}</ul></div>
   `);
@@ -182,7 +183,18 @@ async function openJob(id) {
     if (a) { d.answers.push(a); $("#qText").value = ""; $("#qLimit").value = ""; renderQuestions(id, d.answers); refreshJobs(); }
   };
   $("#qAdd").onclick = add;
-  $("#qForm").onsubmit = (e) => { e.preventDefault(); add(); };
+  $("#qDraft").onclick = async () => {
+    const question = $("#qText").value.trim();
+    if (!question) { $("#qText").focus(); return; }
+    const char_limit = Number($("#qLimit").value) || null;
+    $("#qDraft").disabled = true;
+    $("#qDraft").textContent = "Drafting…";
+    const out = await attempt(() => source.draftAnswer(id, { question, char_limit }), "Draft ready. Edit it, then mark it as submitted.");
+    $("#qDraft").disabled = false;
+    $("#qDraft").textContent = "Add and draft answer";
+    if (out) { d.answers.push({ ...out.answer, flags: out.flags }); $("#qText").value = ""; $("#qLimit").value = ""; renderQuestions(id, d.answers); refreshJobs(); }
+  };
+  $("#qForm").onsubmit = (e) => { e.preventDefault(); $("#qDraft").click(); };
 }
 
 function renderQuestions(jobId, answers) {
@@ -193,8 +205,10 @@ function renderQuestions(jobId, answers) {
   }
   box.innerHTML = answers.map((a, i) => `<div class="qitem" data-i="${i}"><strong>${i + 1}. ${esc(a.question)}</strong>
     <textarea aria-label="Answer to question ${i + 1}" maxlength="20000">${esc(a.answer || "")}</textarea>
+    ${a.flags?.length ? `<div class="guard w"><ul>${a.flags.map((f) => `<li>${esc(f.message)}</li>`).join("")}</ul></div>` : ""}
     <div class="qmeta"><span data-count></span><span class="btnrow">
       <button class="btn sm" data-save>Save</button>
+      ${a.final ? "" : `<button class="btn sm" data-redraft>Redraft</button>`}
       <button class="btn sm" data-final>${a.final ? "Submitted" : "Mark as submitted"}</button>
       <button class="btn sm" data-del aria-label="Delete question ${i + 1}">Delete</button></span></div></div>`).join("");
   $$(".qitem", box).forEach((item) => {
@@ -217,6 +231,14 @@ function renderQuestions(jobId, answers) {
       const saved = await attempt(() => source.updateAnswer(a.id, { answer: ta.value, final: true }), "Saved as the final submitted answer.");
       if (saved) { Object.assign(a, saved); renderQuestions(jobId, answers); }
     };
+    $("[data-redraft]", item)?.addEventListener("click", async (e) => {
+      if (ta.value.trim() && !confirm("Replace this answer with a new draft?")) return;
+      e.target.disabled = true;
+      e.target.textContent = "Drafting…";
+      const out = await attempt(() => source.redraftAnswer(a.id), "New draft ready.");
+      if (out) Object.assign(a, out.answer, { flags: out.flags });
+      renderQuestions(jobId, answers);
+    });
     $("[data-del]", item).onclick = async () => {
       if (!confirm("Delete this question and its answer?")) return;
       if (await attempt(() => source.deleteAnswer(a.id), "Question deleted.")) {

@@ -11,6 +11,7 @@
 //   markSent(id), documentFileUrl(id)
 //   reviewPosting({ text } | { url }), reviewJob(id)   (AI; the demo replays a recorded review)
 //   generateDoc(jobId, kind), exportWord(id)            (AI / server; the demo copies a sample)
+//   draftAnswer(jobId, { question, char_limit }), redraftAnswer(id)  (AI; the demo uses a sample)
 //
 // Demo writes change in-memory state only; nothing is sent anywhere.
 
@@ -25,6 +26,14 @@ async function getJson(path) {
 }
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
+
+// The demo's stand-in for an AI-drafted answer, cut to the limit like the real one.
+const DEMO_ANSWER = "I turn repetitive course work into reviewed, repeatable workflows. At Northfield Community College I introduced a shared review checklist that cut average review rounds from 3 to 2 across 40 courses, and I would bring the same habit here: learn how the team works, test a change with the people who use it, and document what works so it sticks.";
+function demoAnswer(limit) {
+  if (!limit || DEMO_ANSWER.length <= limit) return DEMO_ANSWER;
+  const cut = DEMO_ANSWER.slice(0, limit);
+  return cut.slice(0, Math.max(cut.lastIndexOf(". ") + 1, cut.lastIndexOf(" "))).trim();
+}
 
 export function demoSource() {
   let list = null;
@@ -194,6 +203,19 @@ export function demoSource() {
     async exportWord() {
       throw new Error("Word download works when signed in. The demo can download PDF.");
     },
+    async draftAnswer(jobId, { question, char_limit }) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const a = await this.addAnswer(jobId, { question, char_limit });
+      return { answer: await this.updateAnswer(a.id, { answer: demoAnswer(char_limit) }), flags: [] };
+    },
+    async redraftAnswer(id) {
+      await new Promise((r) => setTimeout(r, 1500));
+      for (const d of details.values()) {
+        const a = d.answers.find((x) => x.id === id);
+        if (a) return { answer: await this.updateAnswer(id, { answer: demoAnswer(a.char_limit) }), flags: [] };
+      }
+      throw new Error("Not found.");
+    },
     async reviewJob(id) {
       const sample = await this.reviewPosting({});
       const d = await detail(id);
@@ -258,6 +280,8 @@ export function apiSource(getToken) {
     async reviewPosting(input) { return api("review", { method: "POST", body: input }); },
     async reviewJob(id) { fresh(); return api(`review?job=${id}`, { method: "POST", body: {} }); },
     async generateDoc(jobId, kind) { return api(`generate?job=${jobId}&kind=${kind}`, { method: "POST", body: {} }); },
+    async draftAnswer(jobId, fields) { fresh(); return api(`answer?job=${jobId}`, { method: "POST", body: fields }); },
+    async redraftAnswer(id) { return api(`answer?id=${id}`, { method: "POST", body: {} }); },
     async exportWord(id) {
       const token = await getToken();
       const res = await fetch(`api/export?id=${id}`, { headers: { Authorization: `Bearer ${token}` } });

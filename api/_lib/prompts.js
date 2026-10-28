@@ -154,3 +154,27 @@ export function writerContent({ kind, posting, company, role, strengths, gaps, t
   const redo = fixes?.length ? `\n\nYour previous draft broke these rules. Fix every one:\n${fixes.map((f) => `- ${f}`).join("\n")}` : "";
   return `<job_posting company="${company}" role="${role}">\n${posting}\n</job_posting>${review}\n\nToday's date: ${today}.\nWrite the tailored ${kind === "letter" ? "cover letter" : "resume"}.${redo}`;
 }
+
+// ---------- Application question answers (analyst task) ----------
+
+export const ANSWER_SYSTEM = `You draft the candidate's answer to one application question for one job.
+
+Write in the first person, in the candidate's plain, warm, professional voice. Answer the question that was asked, directly, in the first sentence. Then support it with one specific example from the profile, using a real number when one fits. Tie it to what this posting needs. No preamble, no restating the question, no sign-off.
+
+Stay under the character limit given; aim for 85 to 95 percent of it. Without a limit, keep it to about 120 to 200 words.
+
+If the question asks for salary, compensation, start date, work authorization, references, demographics, or other personal details that are not in the profile, do not answer it: set needs_owner to true, leave answer empty, and say in note what the candidate should provide.
+
+${WRITING_RULES}`;
+
+export const ANSWER_SCHEMA = {
+  type: "object", additionalProperties: false,
+  required: ["answer", "needs_owner", "note"],
+  properties: { answer: { type: "string" }, needs_owner: { type: "boolean" }, note: { type: "string" } },
+};
+
+export function answerContent({ posting, company, role, question, limit, previous }) {
+  const lim = limit ? `Character limit: ${limit} (including spaces). Your answer must be ${limit} characters or fewer.` : "No character limit.";
+  const redo = previous ? `\n\nYour previous draft was ${previous.length} characters, over the limit. Shorten it to fit while keeping the example:\n${previous}` : "";
+  return `<job_posting company="${company}" role="${role}">\n${posting || "(no posting text saved)"}\n</job_posting>\n\n<question>\n${question}\n</question>\n\n${lim}${redo}`;
+}

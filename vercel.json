@@ -31,6 +31,9 @@
     },
     "api/review.js": {
       "maxDuration": 120
+    },
+    "api/answer.js": {
+      "maxDuration": 120
     }
   }
 }

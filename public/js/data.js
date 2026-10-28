@@ -230,12 +230,14 @@ export function demoSource() {
 // The signed-in owner's real records, read and written through the API as
 // that user (row-level security applies to every request).
 export function apiSource(getToken) {
-  async function api(path, { method = "GET", body } = {}) {
-    const token = await getToken();
+  async function api(path, { method = "GET", body } = {}, retried = false) {
+    const token = await getToken({ force: retried });
     if (!token) throw Object.assign(new Error("Your session has expired. Sign in again."), { status: 401 });
     const headers = { Accept: "application/json", Authorization: `Bearer ${token}` };
     if (body !== undefined) headers["Content-Type"] = "application/json";
     const res = await fetch(`api/${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    // A rejected token gets one renewal and one retry before giving up.
+    if (res.status === 401 && !retried) return api(path, { method, body }, true);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw Object.assign(new Error(data.error || `Request failed (${res.status}).`), { status: res.status });
     return data;
@@ -284,6 +286,7 @@ export function apiSource(getToken) {
     async redraftAnswer(id) { return api(`answer?id=${id}`, { method: "POST", body: {} }); },
     async exportWord(id) {
       const token = await getToken();
+      if (!token) throw Object.assign(new Error("Your session has expired. Sign in again."), { status: 401 });
       const res = await fetch(`api/export?id=${id}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Word export failed (${res.status}).`);
       const name = (res.headers.get("content-disposition") || "").match(/filename="([^"]+)"/)?.[1] || "document.docx";

@@ -48,22 +48,39 @@ export function hasSession() {
   return Boolean(storage.get());
 }
 
-// Returns a fresh access token, refreshing it if it expires within a minute.
-export async function getAccessToken() {
+// Returns a fresh access token, renewing it if it expires within a minute.
+//
+// Refresh tokens are single-use, so concurrent callers share one renewal
+// (several requests start at once when the page loads). The session is only
+// dropped when Supabase says the refresh token is no longer valid; a network
+// blip keeps it, so the owner stays signed in until they sign out.
+let renewing = null;
+
+export async function getAccessToken({ force = false } = {}) {
   const s = storage.get();
   if (!s) return null;
-  if (s.expires_at - Date.now() > 60_000) return s.access_token;
+  if (!force && s.expires_at - Date.now() > 60_000) return s.access_token;
+  renewing ||= renew(s).finally(() => { renewing = null; });
+  return renewing;
+}
+
+async function renew(s) {
   const cfg = await loadConfig();
-  if (!cfg) return null;
+  if (!cfg) return s.expires_at > Date.now() ? s.access_token : null;
   const res = await fetch(`${cfg.supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
     method: "POST",
     headers: { apikey: cfg.anonKey, "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: s.refresh_token }),
   }).catch(() => null);
-  if (!res?.ok) {
+  if (!res) return s.expires_at > Date.now() ? s.access_token : null; // offline: keep the session
+  if (res.status === 400 || res.status === 401) {
+    // Another tab may have renewed first; use its newer session if so.
+    const latest = storage.get();
+    if (latest && latest.refresh_token !== s.refresh_token) return latest.access_token;
     storage.clear();
     return null;
   }
+  if (!res.ok) return s.expires_at > Date.now() ? s.access_token : null; // server trouble: try again later
   const d = await res.json();
   storage.set({ access_token: d.access_token, refresh_token: d.refresh_token, expires_at: Date.now() + d.expires_in * 1000 });
   return d.access_token;

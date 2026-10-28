@@ -12,6 +12,7 @@
 //   reviewPosting({ text } | { url }), reviewJob(id)   (AI; the demo replays a recorded review)
 //   generateDoc(jobId, kind), exportWord(id)            (AI / server; the demo copies a sample)
 //   draftAnswer(jobId, { question, char_limit }), redraftAnswer(id)  (AI; the demo uses a sample)
+//   uploadResume(file), confirmFacts(facts, source), buildResume(entry)  (AI; the demo uses samples)
 //
 // Demo writes change in-memory state only; nothing is sent anywhere.
 
@@ -203,6 +204,36 @@ export function demoSource() {
     async exportWord() {
       throw new Error("Word download works when signed in. The demo can download PDF.");
     },
+    async uploadResume(file) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const p = await loadProfile();
+      const pick = (kind) => p.facts.filter((f) => f.kind === kind);
+      return {
+        document: { id: nextId++, title: "Base resume", file_name: file.name },
+        extracted: {
+          name: "Jordan Avery", contact: "Remote, United States · jordan.avery@example.com", summary: "",
+          roles: [{ org: "Northfield Community College", title: "Lead Instructional Designer", dates: "2019 to present" }],
+          results: pick("result").map((f) => ({ employer: f.group, text: f.text })),
+          skills: [...new Set(pick("skill").map((f) => f.group))].map((g) => ({ group: g, items: pick("skill").filter((f) => f.group === g).map((f) => f.text) })),
+          education: pick("education").map((f) => ({ text: f.text, dates: "" })),
+        },
+      };
+    },
+    async confirmFacts(facts) {
+      const p = await loadProfile();
+      const added = facts.map((f) => ({ id: nextId++, kind: f.kind, group: f.group, text: f.text, verified: true, source: "upload" }));
+      p.facts.push(...added);
+      return { facts: clone(added) };
+    },
+    async buildResume(entry) {
+      await new Promise((r) => setTimeout(r, 2200));
+      const all = await loadDocs();
+      const sample = all.find((d) => d.kind === "resume" && d.content);
+      const doc = { ...clone(sample), id: nextId++, job_id: null, source: "built", sent: false, title: "Resume built from your skills", file_name: "Resume.pdf", created_at: new Date().toISOString() };
+      doc.content.name = entry.name || doc.content.name;
+      all.unshift(doc);
+      return { document: doc, flags: [], facts_added: 0 };
+    },
     async draftAnswer(jobId, { question, char_limit }) {
       await new Promise((r) => setTimeout(r, 1500));
       const a = await this.addAnswer(jobId, { question, char_limit });
@@ -283,6 +314,21 @@ export function apiSource(getToken) {
     async reviewJob(id) { fresh(); return api(`review?job=${id}`, { method: "POST", body: {} }); },
     async generateDoc(jobId, kind) { return api(`generate?job=${jobId}&kind=${kind}`, { method: "POST", body: {} }); },
     async draftAnswer(jobId, fields) { fresh(); return api(`answer?job=${jobId}`, { method: "POST", body: fields }); },
+    async uploadResume(file) {
+      if (file.size > 4 * 1024 * 1024) throw new Error("That file is larger than 4 MB.");
+      const send = async (force) => {
+        const token = await getToken({ force });
+        if (!token) throw Object.assign(new Error("Your session has expired. Sign in again."), { status: 401 });
+        return fetch("api/upload", { method: "POST", headers: { Authorization: `Bearer ${token}`, "X-File-Name": encodeURIComponent(file.name) }, body: file });
+      };
+      let res = await send(false);
+      if (res.status === 401) res = await send(true);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(data.error || `Upload failed (${res.status}).`), { status: res.status });
+      return data;
+    },
+    async confirmFacts(facts, source) { return api("profile?batch=1", { method: "POST", body: { facts, source, confirmed: true } }); },
+    async buildResume(entry) { return api("build", { method: "POST", body: { ...entry, confirmed: true } }); },
     async redraftAnswer(id) { return api(`answer?id=${id}`, { method: "POST", body: {} }); },
     async exportWord(id) {
       const token = await getToken();

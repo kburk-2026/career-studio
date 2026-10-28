@@ -14,7 +14,6 @@ let profile = { facts: [], prefs: {} };
 let docs = [];
 let lastFocus = null;
 let resFilter = "all";
-const SOON = "Arrives with the AI update.";
 
 function toast(text) {
   const el = $("#toast");
@@ -353,7 +352,7 @@ async function openDoc(id, backJobId) {
 
   if (!doc.content) {
     openDrawer(`${head(doc.kind === "letter" ? "Cover letter" : "Resume", doc.title, doc.file_name || "")}${back}
-      <div class="section"><div class="notice">This is the original file${doc.sent ? " exactly as it was sent" : ""}. Reading uploaded files into the editor: ${SOON}</div>
+      <div class="section"><div class="notice">This is the original file${doc.sent ? " exactly as it was sent" : ""}. Originals stay as they are; to get an editable version, generate a tailored resume from a job.</div>
       <div class="btnrow" style="margin-top:12px">${doc.has_file ? `<button class="btn primary" id="dlFile">Download file</button>` : ""}</div></div>`);
     $("#dlFile")?.addEventListener("click", async () => {
       const url = await attempt(() => source.documentFileUrl(doc.id));
@@ -505,6 +504,103 @@ async function addFact(kind, textEl, groupEl) {
   if (f) { profile.facts.push(f); textEl.value = ""; renderProfile(); }
 }
 
+/* ---------- Start: upload a resume or build one ---------- */
+
+const norm = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+function openUpload() {
+  $("#startArea").innerHTML = `<div class="card" style="margin-top:16px">
+    <h3>Upload your resume</h3><p class="sub">PDF or Word (.docx), up to 4 MB. It also becomes your base resume: tailored resumes copy its format, dates, and header.</p>
+    <label class="drop" for="fileIn"><input type="file" id="fileIn" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden><b>Choose a file</b><br>Claude reads it and lists what it found. You choose what goes into your profile.</label>
+    <div id="upStatus"></div><div id="upResult"></div></div>`;
+  $("#fileIn").onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    $("#upStatus").innerHTML = `<div class="thinking"><span class="spin"></span>Reading ${esc(file.name)}. This takes about 30 seconds.</div>`;
+    const out = await attempt(() => source.uploadResume(file));
+    $("#upStatus").innerHTML = "";
+    if (out) { showExtracted(out.extracted); refreshDocs(); }
+  };
+}
+
+function showExtracted(x) {
+  const known = new Set((profile.facts || []).map((f) => norm(f.text)));
+  const items = [
+    ...(x.summary ? [{ kind: "summary", group: "Summary", text: x.summary }] : []),
+    ...x.roles.map((r) => ({ kind: "role", group: r.org, text: `${r.title}, ${r.org}${r.dates ? ` (${r.dates})` : ""}` })),
+    ...x.results.map((r) => ({ kind: "result", group: r.employer, text: r.text })),
+    ...x.skills.flatMap((g) => g.items.map((t) => ({ kind: "skill", group: g.group, text: t }))),
+    ...x.education.map((e) => ({ kind: "education", group: "Education", text: e.dates ? `${e.text} (${e.dates})` : e.text })),
+  ].map((it, i) => ({ ...it, i, dup: known.has(norm(it.text)) }));
+  const SECTIONS = [["summary", "Summary"], ["role", "Roles"], ["result", "Results and responsibilities"], ["skill", "Skills"], ["education", "Education"]];
+  const fresh = items.filter((it) => !it.dup).length;
+  $("#upResult").innerHTML = `<div class="section"><h3>Found ${items.length} items${fresh < items.length ? `, ${items.length - fresh} already in your profile` : ""}</h3>
+    <p class="sub">Untick anything that isn't right. Only ticked items join your profile, as confirmed.</p>
+    <div class="btnrow" style="margin:10px 0"><button class="btn sm" id="tickAll">Tick all new</button><button class="btn sm" id="tickNone">Untick all</button></div>
+    ${SECTIONS.map(([kind, title]) => {
+      const group = items.filter((it) => it.kind === kind);
+      return group.length ? `<p class="groupname" style="margin:14px 0 6px">${title}</p><ul class="picklist">${group.map((it) => `<li><label><input type="checkbox" data-i="${it.i}" ${it.dup ? "" : "checked"}> ${esc(it.text)}${it.group && !["Summary", "Education"].includes(it.group) && kind !== "role" ? ` <span class="note">(${esc(it.group)})</span>` : ""}${it.dup ? ' <span class="note">already in your profile</span>' : ""}</label></li>`).join("")}</ul>` : "";
+    }).join("")}
+    <div class="savebar"><button class="btn primary" id="confirmUp"></button></div></div>`;
+  const boxes = () => $$("#upResult input[type=checkbox]");
+  const count = () => { const n = boxes().filter((b) => b.checked).length; $("#confirmUp").textContent = `Add ${n} item${n === 1 ? "" : "s"} to my profile`; $("#confirmUp").disabled = !n; };
+  boxes().forEach((b) => b.addEventListener("change", count));
+  $("#tickAll").onclick = () => { boxes().forEach((b) => (b.checked = !items[Number(b.dataset.i)].dup)); count(); };
+  $("#tickNone").onclick = () => { boxes().forEach((b) => (b.checked = false)); count(); };
+  count();
+  $("#confirmUp").onclick = async () => {
+    const chosen = boxes().filter((b) => b.checked).map((b) => items[Number(b.dataset.i)]).map(({ kind, group, text }) => ({ kind, group, text }));
+    const out = await attempt(() => source.confirmFacts(chosen, "upload"), `Added ${chosen.length} confirmed items to your profile.`);
+    if (!out) return;
+    profile.facts.push(...out.facts);
+    renderProfile();
+    $("#startArea").innerHTML = "";
+    go("profile");
+  };
+}
+
+function openBuild() {
+  const roleRow = () => `<div class="card buildrole" style="background:var(--deep)"><div class="formgrid">
+    <div class="field"><label>Employer</label><input data-b="org" maxlength="120"></div>
+    <div class="field"><label>Title</label><input data-b="title" maxlength="120"></div>
+    <div class="field"><label>Dates</label><input data-b="dates" maxlength="60" placeholder="e.g. March 2024 - Present"></div>
+    <div class="field wide"><label>Results and responsibilities (one per line, with numbers where you have them)</label><textarea data-b="results" rows="4" maxlength="6000"></textarea></div></div></div>`;
+  $("#startArea").innerHTML = `<form class="card" id="buildForm" style="margin-top:16px">
+    <h3>Tell us what you've done</h3><p class="sub">Everything you enter is saved to your profile as confirmed, so enter only what is true. The resume uses nothing else.</p>
+    <div class="formgrid"><div class="field"><label for="b_name">Full name</label><input id="b_name" required maxlength="120"></div>
+    <div class="field"><label for="b_contact">Contact line</label><input id="b_contact" maxlength="300" placeholder="City, State | email | LinkedIn"></div></div>
+    <p class="groupname" style="margin:18px 0 8px">Roles, most recent first</p><div id="roles">${roleRow()}</div>
+    <button class="btn sm" type="button" id="addRole">Add another role</button>
+    <div class="formgrid" style="margin-top:18px"><div class="field wide"><label for="b_skills">Skills (comma separated)</label><textarea id="b_skills" rows="2" maxlength="3000" placeholder="e.g. Canvas, curriculum design, Power BI"></textarea></div>
+    <div class="field wide"><label for="b_edu">Education and certifications (one per line, dates in parentheses)</label><textarea id="b_edu" rows="3" maxlength="2000"></textarea></div></div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:16px"><input type="checkbox" id="b_ok"> Everything I entered is accurate.</label>
+    <div class="savebar"><button class="btn primary" type="submit">Build my resume</button><span class="note" id="buildNote"></span></div></form>`;
+  $("#addRole").onclick = () => $("#roles").insertAdjacentHTML("beforeend", roleRow());
+  $("#buildForm").onsubmit = async (e) => {
+    e.preventDefault();
+    if (!$("#b_ok").checked) { $("#buildNote").textContent = "Tick the accuracy box first."; return; }
+    const roles = $$(".buildrole").map((row) => ({
+      org: $('[data-b="org"]', row).value.trim(), title: $('[data-b="title"]', row).value.trim(), dates: $('[data-b="dates"]', row).value.trim(),
+      results: $('[data-b="results"]', row).value.split("\n").map((t) => t.trim().replace(/^[-*]\s*/, "")).filter(Boolean),
+    })).filter((r) => r.org && r.title);
+    if (!roles.length) { $("#buildNote").textContent = "Add at least one role with an employer and title."; return; }
+    const entry = {
+      name: $("#b_name").value.trim(), contact: $("#b_contact").value.trim(), roles,
+      skills: [{ group: "Skills", items: $("#b_skills").value.split(",").map((t) => t.trim()).filter(Boolean) }],
+      education: $("#b_edu").value.split("\n").map((t) => t.trim()).filter(Boolean).map((t) => { const m = t.match(/^(.*?)\s*\(([^)]*)\)\s*$/); return m ? { text: m[1], dates: m[2] } : { text: t, dates: "" }; }),
+    };
+    $("#buildNote").textContent = "Building your resume. This takes about a minute.";
+    const out = await attempt(() => source.buildResume(entry), "Resume built. Edit it, then download it.");
+    $("#buildNote").textContent = "";
+    if (!out) return;
+    if (source.mode === "live") profile = { ...profile, ...(await source.getProfile()) };
+    renderProfile();
+    await refreshDocs();
+    go("resumes");
+    openDoc(out.document.id);
+  };
+}
+
 /* ---------- Sign-in ---------- */
 
 function openSignIn() {
@@ -565,8 +661,8 @@ function wire() {
   $("#skillForm").onsubmit = (e) => { e.preventDefault(); addFact("skill", $("#newSkill"), $("#newSkillGroup")); };
   $("#resultForm").onsubmit = (e) => { e.preventDefault(); addFact("result", $("#newResult"), $("#newResultGroup")); };
   $("#eduForm").onsubmit = (e) => { e.preventDefault(); addFact("education", $("#newEdu")); };
-  $("#pickUpload").onclick = () => { $("#startNote").textContent = `Reading an uploaded resume: ${SOON} Until then, add skills and results on the Profile page.`; };
-  $("#pickSkills").onclick = () => go("profile");
+  $("#pickUpload").onclick = openUpload;
+  $("#pickSkills").onclick = openBuild;
   $("#signInBtn").onclick = openSignIn;
   $("#signOutBtn").onclick = doSignOut;
   $("#signOutBtn2").onclick = doSignOut;

@@ -381,6 +381,12 @@ tbody tr:hover td{background:#FAFAF6}
 .doc.letter .signoff{margin-top:14pt}
 .guard ul{margin:6px 0 0;padding-left:18px}
 
+/* Upload review list */
+.picklist{list-style:none;padding:0;margin:0}
+.picklist li{padding:6px 0;border-bottom:1px solid var(--faint)}
+.picklist label{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.picklist input{margin-top:3px;accent-color:var(--green)}
+
 /* Score reasons */
 .reasons{margin-top:10px;font-size:13px}
 .reasons summary{cursor:pointer;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim)}

@@ -52,6 +52,26 @@ export const GET = handle(async (request) => {
 
 export const POST = handle(async (request) => {
   const session = await requireOwner(request);
+
+  // ?batch=1: items the owner ticked after reading an uploaded resume or
+  // entering their own. Ticking is the confirmation, so they save as verified.
+  if (new URL(request.url).searchParams.get("batch") === "1") {
+    const body = await readJson(request, 256 * 1024);
+    if (body.confirmed !== true) throw new HttpError(400, "Confirm the items first.");
+    if (!Array.isArray(body.facts) || !body.facts.length || body.facts.length > 300) throw new HttpError(400, "Send between 1 and 300 items.");
+    const source = body.source === "upload" ? "upload" : "app";
+    const rows = body.facts.map((f, i) => ({
+      kind: v.oneOf(f.kind, "Kind", KINDS),
+      group_title: v.text(f.group, "Group", { max: 120 }) || "Other",
+      text: v.text(f.text, "Text", { max: 1000, required: true }),
+      position: 200 + i,
+      verified: true,
+      source,
+    }));
+    const saved = await restWrite(session, "POST", "profile_facts?select=id,kind,group_title,text,verified,source", rows);
+    return json(201, { facts: saved.map((f) => ({ ...f, group: f.group_title })) });
+  }
+
   const body = await readJson(request);
   const row = {
     kind: v.oneOf(body.kind ?? "skill", "Kind", KINDS),

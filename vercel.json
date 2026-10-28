@@ -34,6 +34,12 @@
     },
     "api/answer.js": {
       "maxDuration": 120
+    },
+    "api/upload.js": {
+      "maxDuration": 120
+    },
+    "api/build.js": {
+      "maxDuration": 300
     }
   }
 }

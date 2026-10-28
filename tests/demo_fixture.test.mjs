@@ -71,3 +71,11 @@ test("demo facts include unverified items so the confirm flow is visible", () =>
   assert.ok(facts.some((f) => !f.verified));
   assert.ok(new Set(facts.map((f) => f.id)).size === facts.length, "fact ids are unique");
 });
+
+test("the recorded demo review is fictional and internally consistent", () => {
+  const r = read("review.json");
+  assert.equal(r.fictional, true);
+  assert.equal(fitFromBreakdown(r.fit_breakdown), r.fit_score);
+  const profileNumbers = new Set(JSON.stringify(read("profile.json")).match(/\d+/g));
+  for (const n of [...r.strengths, ...r.gaps].join(" ").match(/\d+/g) || []) assert.ok(profileNumbers.has(n), `review uses ${n}`);
+});

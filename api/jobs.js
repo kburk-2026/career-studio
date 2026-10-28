@@ -68,6 +68,21 @@ function jobFields(body, { creating }) {
   if ("jd_text" in body) row.jd_text = v.text(body.jd_text, "Job description", { max: 60_000 });
   if ("notes" in body) row.notes = v.text(body.notes, "Notes", { max: 5000 });
   if ("status" in body) row.status = v.oneOf(body.status, "Status", STATUSES);
+  // Results of an AI review, saved along with a new job.
+  if ("fit_score" in body) row.fit_score = v.int(body.fit_score, "Fit score", { min: 0, max: 100 });
+  if ("odds_score" in body) row.odds_score = v.int(body.odds_score, "Odds score", { min: 0, max: 100 });
+  for (const field of ["fit_breakdown", "posting_facts"]) {
+    if (field in body) {
+      if (body[field] !== null && (typeof body[field] !== "object" || Array.isArray(body[field]))) throw new HttpError(400, `${field} must be an object.`);
+      row[field] = body[field];
+    }
+  }
+  for (const field of ["strengths", "gaps", "pref_match"]) {
+    if (field in body) {
+      if (!Array.isArray(body[field]) || body[field].length > 20) throw new HttpError(400, `${field} must be a short list.`);
+      row[field] = body[field];
+    }
+  }
   if ("applied_on" in body) {
     const d = v.text(body.applied_on, "Applied date", { max: 10 });
     if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new HttpError(400, "Applied date must be YYYY-MM-DD.");

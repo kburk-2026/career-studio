@@ -354,5 +354,10 @@ tbody tr:hover td{background:#FAFAF6}
 .drawer-head .role,.drawer-head .detailmeta{color:#CFCFC7}
 .drawer-head .eyebrow{color:var(--lime)}
 
+/* Score reasons */
+.reasons{margin-top:10px;font-size:13px}
+.reasons summary{cursor:pointer;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim)}
+.reasons li{margin:6px 0}
+
 /* Phone: keep the active-tab marker under the label in the top bar. */
 @media(max-width:760px){.nav button.active{box-shadow:inset 0 -3px 0 var(--lime)}}

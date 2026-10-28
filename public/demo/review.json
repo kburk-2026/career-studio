@@ -1,0 +1,61 @@
+{
+  "fictional": true,
+  "company": "Harborview College",
+  "role_title": "Instructional Technology Specialist",
+  "location": "Remote",
+  "fit_score": 79,
+  "odds_score": 71,
+  "fit_breakdown": {
+    "core": 3,
+    "shape": 3,
+    "domain": 4,
+    "scope": 3,
+    "tools": 3,
+    "quals": 3,
+    "screening": "selective",
+    "reasons": {
+      "core": "Course design, accessibility, and quality review match most must-haves; LMS administration is only partly covered.",
+      "shape": "Hands-on design and training work, close to the profile's day-to-day work.",
+      "domain": "Higher education, the profile's main industry.",
+      "scope": "Team leadership of four designers fits a specialist role with training duties.",
+      "tools": "Canvas and Kaltura are named in both; the posting's D2L is not in the profile.",
+      "quals": "The MEd in Instructional Design and Technology meets the degree requirement."
+    }
+  },
+  "pref_match": [
+    {
+      "status": "ok",
+      "text": "Remote, matches your preference"
+    },
+    {
+      "status": "warn",
+      "text": "Salary not listed in posting"
+    },
+    {
+      "status": "ok",
+      "text": "Higher education: a preferred industry"
+    }
+  ],
+  "posting_facts": {
+    "salary_min": null,
+    "salary_max": null,
+    "arrangement": "remote",
+    "location": "Remote",
+    "industry": "Higher education",
+    "level": "senior",
+    "employment_type": "Full-time"
+  },
+  "strengths": [
+    "Course review checklist that cut review rounds from 3 to 2 across 40 courses matches the posting's quality-review duties.",
+    "Accessibility remediation of 120 course pages fits the WCAG compliance requirement.",
+    "Canvas and Kaltura experience covers two of the three named platforms."
+  ],
+  "gaps": [
+    "D2L Brightspace is required; the profile lists Canvas and Moodle only.",
+    "The posting asks for LMS administration; the profile shows course-level work, not system administration."
+  ],
+  "requirements": [],
+  "summary": "A solid fit for the design and quality work; prepare to address D2L and LMS administration.",
+  "flags": [],
+  "jd_text": "Fictional posting. Harborview College seeks an Instructional Technology Specialist to support faculty with course design, accessibility, and the D2L Brightspace LMS."
+}

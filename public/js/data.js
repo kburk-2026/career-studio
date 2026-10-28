@@ -9,6 +9,7 @@
 //   getProfile(), savePrefs(prefs), addFact(fact), updateFact(id, fields), deleteFact(id)
 //   listDocuments(), getDocument(id), saveDocument(id, fields), copyDocument(id),
 //   markSent(id), documentFileUrl(id)
+//   reviewPosting({ text } | { url }), reviewJob(id)   (AI; the demo replays a recorded review)
 //
 // Demo writes change in-memory state only; nothing is sent anywhere.
 
@@ -71,9 +72,13 @@ export function demoSource() {
     async createJob(fields) {
       const id = nextId++;
       const status = fields.status || "IN_PROGRESS";
-      const row = { id, company: fields.company, role_title: fields.role_title, location: fields.location || "", status, applied_on: null, fit_score: null, odds_score: null, answer_count: 0, has_resume: false, has_cover_letter: false };
+      const row = { id, company: fields.company, role_title: fields.role_title, location: fields.location || "", status, applied_on: null, fit_score: fields.fit_score ?? null, odds_score: fields.odds_score ?? null, answer_count: 0, has_resume: false, has_cover_letter: false };
       (await loadList()).jobs.unshift(row);
-      details.set(id, { ...row, fictional: true, jd_text: fields.jd_text || "", source_url: fields.source_url || null, strengths: [], gaps: [], answers: [], history: [{ status, at: localToday() }] });
+      details.set(id, {
+        ...row, fictional: true, jd_text: fields.jd_text || "", source_url: fields.source_url || null,
+        fit_breakdown: fields.fit_breakdown || null, pref_match: fields.pref_match || null,
+        strengths: fields.strengths || [], gaps: fields.gaps || [], answers: [], history: [{ status, at: localToday() }],
+      });
       return { id };
     },
     async updateJob(id, fields) {
@@ -169,6 +174,20 @@ export function demoSource() {
     async documentFileUrl() {
       throw new Error("The demo has no stored files.");
     },
+    // The public demo never calls the AI: it replays one recorded review.
+    async reviewPosting({ text, url }) {
+      await new Promise((r) => setTimeout(r, 1800));
+      const sample = await getJson(`${DEMO_ROOT}review.json`);
+      return { ...sample, jd_text: text || sample.jd_text, source_url: url || null };
+    },
+    async reviewJob(id) {
+      const sample = await this.reviewPosting({});
+      const d = await detail(id);
+      const row = await listRow(id);
+      for (const k of ["fit_score", "odds_score", "fit_breakdown", "pref_match", "strengths", "gaps"]) d[k] = sample[k];
+      Object.assign(row, { fit_score: sample.fit_score, odds_score: sample.odds_score });
+      return sample;
+    },
   };
 }
 
@@ -222,6 +241,8 @@ export function apiSource(getToken) {
     async copyDocument(id) { return api(`documents?copy=${id}`, { method: "POST" }); },
     async markSent(id) { fresh(); return api(`documents?sent=${id}`, { method: "POST" }); },
     async documentFileUrl(id) { return (await api(`documents?id=${id}&file=1`)).url; },
+    async reviewPosting(input) { return api("review", { method: "POST", body: input }); },
+    async reviewJob(id) { fresh(); return api(`review?job=${id}`, { method: "POST", body: {} }); },
   };
 }
 

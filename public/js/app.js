@@ -106,8 +106,9 @@ const head = (eyebrow, title, sub, extra = "") =>
 
 function rubricHtml(b) {
   if (!b) return "";
+  const reasons = b.reasons ? `<details class="reasons"><summary>Why each score</summary><ul>${RUBRIC.map(([k, label]) => b.reasons[k] ? `<li><b>${label}:</b> ${esc(b.reasons[k])}</li>` : "").join("")}</ul></details>` : "";
   return `<div class="section"><h3>Why this fit score</h3><div class="rubric">${RUBRIC.map(([k, label, w]) =>
-    `<div><span>${label} <span class="note">&times;${w}</span></span><span class="bar"><span style="width:${(b[k] ?? 0) * 25}%"></span></span><b>${b[k] ?? "-"}/4</b></div>`).join("")}</div></div>`;
+    `<div><span>${label} <span class="note">&times;${w}</span></span><span class="bar"><span style="width:${(b[k] ?? 0) * 25}%"></span></span><b>${b[k] ?? "-"}/4</b></div>`).join("")}</div>${reasons}</div>`;
 }
 
 function prefHtml(match) {
@@ -142,7 +143,7 @@ async function openJob(id) {
     ${rubricHtml(d.fit_breakdown)}
     ${prefHtml(d.pref_match)}
     ${d.strengths?.length || d.gaps?.length ? `<div class="section"><h3>Match notes</h3><div class="match-grid"><div><b>Strengths</b>${list(d.strengths)}</div><div><b>Gaps</b>${list(d.gaps)}</div></div></div>` : ""}
-    ${!d.fit_breakdown && !d.strengths?.length ? `<div class="section"><div class="notice">Fit review, strengths, and gaps for new postings: ${SOON}</div></div>` : ""}
+    ${!d.fit_breakdown ? `<div class="section"><div class="notice">${d.jd_text || d.source_url ? `No fit review yet. <button class="btn sm primary" id="reviewJob" style="margin-left:8px">Review and score</button>` : "No posting text saved, so this job can't be reviewed. Add the posting to review it."}</div></div>` : ""}
     ${LIVE_STATUSES.has(job.status) ? `<div class="coach-cta"><div><b>Interview Coach</b><p>Practice one question at a time with feedback grounded in your profile.</p></div><button class="btn primary" disabled>Coming soon</button></div>` : ""}
     <div class="section"><h3>Tailored documents</h3><div class="docbtns">${docBox("resume")}${docBox("letter")}</div><p class="soon">Generating tailored resumes and letters: ${SOON}</p></div>
     <div class="section"><h3>Application questions</h3><div id="qlist"></div>
@@ -152,6 +153,13 @@ async function openJob(id) {
     <div class="section"><h3>Application timeline</h3><ul>${(d.history || []).map((h) => `<li>${esc(STATUS[h.status] || h.status)} &middot; ${formatDate(h.at)}</li>`).join("") || "<li>No changes yet</li>"}</ul></div>
   `);
   $("#drawerStatus").addEventListener("change", (e) => changeStatus(id, e.target.value));
+  $("#reviewJob")?.addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    e.target.textContent = "Reviewing…";
+    const done = await attempt(() => source.reviewJob(id), "Review saved.");
+    await refreshJobs();
+    if (done) openJob(id); else { e.target.disabled = false; e.target.textContent = "Review and score"; }
+  });
   $$("#drawer [data-open]").forEach((b) => (b.onclick = () => openDoc(Number(b.dataset.open), id)));
   renderQuestions(id, d.answers);
   const add = async () => {
@@ -210,24 +218,77 @@ function renderQuestions(jobId, answers) {
 
 /* ---------- Add a job ---------- */
 
+function reviewHtml(rv) {
+  const flags = rv.flags?.length ? `<div class="guard w"><b>Check before relying on this:</b> ${rv.flags.map((f) => esc(f.message)).join(" ")}</div>` : "";
+  return `<div class="detailcards" style="margin:16px 0 0"><div class="dcard"><span>Fit score</span><b>${rv.fit_score}</b></div><div class="dcard"><span>Screening odds</span><b>${rv.odds_score}</b></div><div class="dcard"><span>Gap</span><b>${rv.fit_score - rv.odds_score}</b></div></div>
+    ${rv.fit_score - rv.odds_score >= 10 ? `<p class="soon">A gap of 10 or more means this employer screens hard: worth applying through a referral if you can.</p>` : ""}
+    ${flags}
+    <div class="section"><h3>Summary</h3><p>${esc(rv.summary)}</p></div>
+    ${rubricHtml(rv.fit_breakdown)}
+    ${prefHtml(rv.pref_match)}
+    <div class="section"><h3>Match notes</h3><div class="match-grid"><div><b>Strengths</b>${list(rv.strengths)}</div><div><b>Gaps</b>${list(rv.gaps)}</div></div></div>`;
+}
+
 function openAddJob() {
   openDrawer(`
-    ${head("New job", "Add a posting", "Paste the job description, or add a link to it.")}
-    <form class="section" id="jobForm">
-      <div class="formgrid">
-        <div class="field"><label for="j_company">Company</label><input id="j_company" required maxlength="200"></div>
-        <div class="field"><label for="j_role">Role</label><input id="j_role" required maxlength="200"></div>
-        <div class="field"><label for="j_location">Location</label><input id="j_location" maxlength="200" placeholder="e.g. Remote"></div>
-        <div class="field"><label for="j_url">Posting link</label><input id="j_url" type="url" maxlength="2000" placeholder="https://"></div>
-        <div class="field wide"><label for="j_text">Job description</label><textarea id="j_text" rows="10" maxlength="60000" placeholder="Paste the full posting"></textarea></div>
-      </div>
-      <div class="savebar"><button class="btn primary" type="submit">Save as In progress</button><span class="note">Fit scoring and review: ${SOON}</span></div>
-    </form>`);
-  $("#jobForm").onsubmit = async (e) => {
-    e.preventDefault();
-    const fields = { company: $("#j_company").value, role_title: $("#j_role").value, location: $("#j_location").value || null, source_url: $("#j_url").value || null, jd_text: $("#j_text").value || null };
-    const created = await attempt(() => source.createJob(fields), "Saved as In progress.");
-    if (created) { await refreshJobs(); openJob(created.id); }
+    ${head("New job", "Review a posting", "Paste the job description or a link. The review uses only your confirmed profile.")}
+    <div class="section">
+      <div class="seg" id="addSeg" role="tablist"><button class="on" data-m="paste" role="tab">Paste text</button><button data-m="link" role="tab">Link</button></div>
+      <div class="field wide" style="margin-top:14px" id="addPaste"><label for="j_text">Job description</label><textarea id="j_text" rows="10" maxlength="60000" placeholder="Paste the full posting"></textarea></div>
+      <div class="field wide hidden" style="margin-top:14px" id="addLink"><label for="j_url">Posting link</label><input id="j_url" type="url" maxlength="2000" placeholder="https://"><div class="help">Works for most job boards. Some sites block automated reading; you'll be asked to paste the text instead.</div></div>
+      <div class="savebar"><button class="btn primary" id="analyze">Review and score</button><button class="btn" id="saveRaw">Save without review</button><span class="note" id="analyzeNote"></span></div>
+    </div>
+    <div id="analysis"></div>`);
+  let mode = "paste";
+  $$("#addSeg button").forEach((b) => (b.onclick = () => {
+    mode = b.dataset.m;
+    $$("#addSeg button").forEach((x) => x.classList.toggle("on", x === b));
+    $("#addPaste").classList.toggle("hidden", mode !== "paste");
+    $("#addLink").classList.toggle("hidden", mode !== "link");
+  }));
+  const input = () => (mode === "link" ? { url: $("#j_url").value.trim() } : { text: $("#j_text").value.trim() });
+
+  $("#analyze").onclick = async () => {
+    const body = input();
+    if (!body.url && !body.text) { (mode === "link" ? $("#j_url") : $("#j_text")).focus(); return; }
+    $("#analyze").disabled = true;
+    $("#analyzeNote").textContent = "Reading the posting and scoring it against your profile. This takes about 20 seconds.";
+    const rv = await attempt(() => source.reviewPosting(body));
+    $("#analyze").disabled = false;
+    $("#analyzeNote").textContent = "";
+    if (!rv) return;
+    $("#analysis").innerHTML = `<div class="section"><h3>Review</h3>
+      <div class="formgrid"><div class="field"><label for="r_company">Company</label><input id="r_company" maxlength="200" value="${esc(rv.company)}"></div>
+      <div class="field"><label for="r_role">Role</label><input id="r_role" maxlength="200" value="${esc(rv.role_title)}"></div></div></div>
+      ${reviewHtml(rv)}
+      <div class="savebar"><button class="btn primary" id="saveNew">Save as In progress</button><button class="btn" id="skipNew">Not a fit, skip</button></div>`;
+    $("#analysis").scrollIntoView({ behavior: "smooth", block: "start" });
+    $("#saveNew").onclick = async () => {
+      const fields = {
+        company: $("#r_company").value, role_title: $("#r_role").value, location: rv.location || null,
+        source_url: rv.source_url || (mode === "link" ? body.url : null), jd_text: rv.jd_text,
+        fit_score: rv.fit_score, odds_score: rv.odds_score, fit_breakdown: rv.fit_breakdown,
+        pref_match: rv.pref_match, posting_facts: rv.posting_facts, strengths: rv.strengths, gaps: rv.gaps,
+      };
+      const created = await attempt(() => source.createJob(fields), "Saved as In progress.");
+      if (created) { await refreshJobs(); openJob(created.id); }
+    };
+    $("#skipNew").onclick = () => { closeDrawer(); toast("Skipped. Nothing was saved."); };
+  };
+
+  $("#saveRaw").onclick = () => {
+    const body = input();
+    $("#analysis").innerHTML = `<form class="section" id="rawForm"><h3>Save without review</h3><div class="formgrid">
+      <div class="field"><label for="j_company">Company</label><input id="j_company" required maxlength="200"></div>
+      <div class="field"><label for="j_role">Role</label><input id="j_role" required maxlength="200"></div></div>
+      <div class="savebar"><button class="btn primary" type="submit">Save as In progress</button></div></form>`;
+    $("#j_company").focus();
+    $("#rawForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const fields = { company: $("#j_company").value, role_title: $("#j_role").value, jd_text: body.text || null, source_url: body.url || null };
+      const created = await attempt(() => source.createJob(fields), "Saved as In progress.");
+      if (created) { await refreshJobs(); openJob(created.id); }
+    };
   };
 }
 

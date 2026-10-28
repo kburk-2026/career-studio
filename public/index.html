@@ -8,21 +8,26 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="demo-banner hidden" id="demoBanner" role="note"><b>Demo.</b> A fictional candidate and fictional employers. Changes here are not saved. <button class="linkbtn hidden" id="signInBtn">Owner sign in</button></div>
 <div class="shell">
   <aside class="side">
-    <div class="brandmark" aria-hidden="true">C</div>
+    <div class="brandmark"><img src="icons/icon-192.png" alt="Career Studio"></div>
     <nav class="nav" aria-label="Main navigation">
-      <button class="active" data-view="applications">Applications</button>
-      <button data-view="resumes">Resumes</button>
-      <button data-view="profile">Profile</button>
       <button data-view="start">Start</button>
+      <button data-view="profile">Profile</button>
+      <button data-view="resumes">Resumes</button>
+      <button class="active" data-view="applications">Applications</button>
     </nav>
-    <button class="signout hidden" id="signOutBtn">Sign out</button>
-    <div class="avatar" id="avatar" title="Workspace">C</div>
+    <div class="account">
+      <button class="avatar" id="avatar" title="Your profile" aria-label="Open your profile">C</button>
+      <button class="signout hidden" id="signOutBtn">Sign out</button>
+    </div>
   </aside>
   <main>
 
@@ -58,6 +63,8 @@
       <form class="card" id="prefsForm">
         <h3>Job preferences</h3><p class="sub">Used for the preference match shown next to fit. Never shown to employers.</p>
         <div class="formgrid">
+          <div class="field"><label for="p_display_name">Your name</label><input id="p_display_name" data-account="name" maxlength="120" placeholder="Shown as your initials in the menu"></div>
+          <div class="field"></div>
           <div class="field"><label for="p_target_titles">Target titles</label><input id="p_target_titles" name="target_titles" maxlength="1000" placeholder="e.g. Senior Product Manager; Director, Learning Technology"></div>
           <div class="field"><label for="p_level">Level</label><select id="p_level" name="level"><option value="">Not set</option><option>Individual contributor</option><option>Manager</option><option>Senior / Lead</option><option>Director</option><option>Executive</option></select></div>
           <div class="field"><label for="p_salary_min">Desired salary, minimum</label><input id="p_salary_min" name="salary_min" inputmode="numeric" placeholder="e.g. 110000"><div class="help">Used only to flag low-paying postings.</div></div>
@@ -90,7 +97,6 @@
         <ul class="tips" id="education"></ul>
         <form class="addrow" id="eduForm"><input id="newEdu" maxlength="1000" placeholder="e.g. Certificate in Product Management, Cornell University" aria-label="New education"><span></span><button class="btn primary" type="submit">Add</button></form>
       </div>
-      <button class="btn" id="signOutBtn2" hidden>Sign out</button>
     </section>
 
     <!-- START -->

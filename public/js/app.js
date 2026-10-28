@@ -759,6 +759,22 @@ async function doSignOut() {
   location.reload();
 }
 
+/* ---------- Account initials ---------- */
+
+let accountName = "";
+
+// "Karen Burkhart" -> "KB"; with no name, the email's first letter.
+export function initials(name, email) {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length) return (parts[0][0] + (parts.length > 1 ? parts.at(-1)[0] : "")).toUpperCase();
+  return String(email || "C").charAt(0).toUpperCase();
+}
+
+function showInitials(email) {
+  $("#avatar").textContent = initials(accountName, email);
+  $("#avatar").title = accountName ? `${accountName}: your profile` : "Your profile";
+}
+
 /* ---------- Wiring ---------- */
 
 function go(view) {
@@ -784,6 +800,8 @@ function wire() {
   $("#prefsForm").onsubmit = async (e) => {
     e.preventDefault();
     const prefs = readPrefs();
+    const name = $("#p_display_name").value.trim();
+    if (name !== accountName && (await attempt(() => source.saveName(name)))) { accountName = name; showInitials(); }
     const saved = await attempt(() => source.savePrefs(prefs), "Preferences saved.");
     if (saved) { profile.prefs = { ...profile.prefs, ...prefs }; renderProfile(); $("#prefsStatus").textContent = "Saved."; }
   };
@@ -796,7 +814,7 @@ function wire() {
   $("#pickSkills").onclick = openBuild;
   $("#signInBtn").onclick = openSignIn;
   $("#signOutBtn").onclick = doSignOut;
-  $("#signOutBtn2").onclick = doSignOut;
+  $("#avatar").onclick = () => go("profile");
 }
 
 async function init() {
@@ -807,13 +825,13 @@ async function init() {
     loadConfig().then((cfg) => { if (cfg) $("#signInBtn").classList.remove("hidden"); });
   } else {
     $("#signOutBtn").classList.remove("hidden");
-    $("#signOutBtn2").hidden = false;
   }
   try {
     const [meta, prof] = await Promise.all([source.meta(), source.getProfile()]);
     profile = { facts: [], prefs: {}, ...prof };
-    $("#avatar").textContent = (meta.candidate?.name || "C").charAt(0);
-    $("#avatar").title = meta.email || meta.candidate?.name || "";
+    accountName = meta.candidate?.name && meta.candidate.name !== "My job search" ? meta.candidate.name : "";
+    showInitials(meta.email);
+    $("#p_display_name").value = accountName;
     await Promise.all([refreshJobs(), refreshDocs()]);
     fillPrefs(profile.prefs);
     renderProfile();

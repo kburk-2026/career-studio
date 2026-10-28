@@ -18,6 +18,7 @@
 // Demo writes change in-memory state only; nothing is sent anywhere.
 
 import { localToday, normStatus } from "./format.js";
+import { updateAccountName } from "./auth.js";
 
 const DEMO_ROOT = "demo/";
 
@@ -154,6 +155,10 @@ export function demoSource() {
     },
     async getProfile() {
       return clone(await loadProfile());
+    },
+    async saveName(name) {
+      (await loadList()).candidate = { name };
+      return { name };
     },
     async savePrefs(prefs) {
       Object.assign((await loadProfile()).prefs, prefs);
@@ -365,6 +370,8 @@ export function apiSource(getToken) {
     async deleteAnswer(id) { fresh(); return api(`answers?id=${id}`, { method: "DELETE" }); },
     async getProfile() { return api("profile"); },
     async savePrefs(prefs) { return api("profile", { method: "PATCH", body: prefs }); },
+    // The name lives on the owner's own sign-in account (Supabase user metadata).
+    async saveName(name) { fresh(); return updateAccountName(name); },
     async addFact(fact) { return api("profile", { method: "POST", body: fact }); },
     async updateFact(id, fields) { return api(`profile?fact=${id}`, { method: "PATCH", body: fields }); },
     async deleteFact(id) { return api(`profile?fact=${id}`, { method: "DELETE" }); },

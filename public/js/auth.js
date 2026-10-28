@@ -100,6 +100,20 @@ export async function sendMagicLink(email) {
   if (res?.status === 429) throw new Error("Too many requests. Wait a minute and try again.");
 }
 
+// Saves the owner's display name on their own account (Supabase user metadata).
+export async function updateAccountName(name) {
+  const cfg = await loadConfig();
+  const token = await getAccessToken();
+  if (!cfg || !token) throw Object.assign(new Error("Your session has expired. Sign in again."), { status: 401 });
+  const res = await fetch(`${cfg.supabaseUrl}/auth/v1/user`, {
+    method: "PUT",
+    headers: { apikey: cfg.anonKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ data: { full_name: String(name).slice(0, 120) } }),
+  });
+  if (!res.ok) throw new Error("Could not save your name.");
+  return { name };
+}
+
 export async function signOut() {
   const s = storage.get();
   storage.clear();

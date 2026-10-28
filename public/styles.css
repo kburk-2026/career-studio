@@ -381,6 +381,21 @@ tbody tr:hover td{background:#FAFAF6}
 .doc.letter .signoff{margin-top:14pt}
 .guard ul{margin:6px 0 0;padding-left:18px}
 
+/* Brand icon and account corner */
+.brandmark{background:#fff!important;padding:4px;width:48px!important;height:48px!important}
+.brandmark img{width:100%;height:100%;object-fit:contain;display:block}
+.account{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:10px}
+.side .avatar{margin:0;background:none;cursor:pointer;font:inherit;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.06em}
+.side .avatar:hover{border-color:var(--lime);color:#fff}
+.side .signout{margin:0}
+@media(max-width:760px){
+  .account{margin:0 0 0 auto;flex-direction:row;gap:8px}
+  .side .avatar{display:grid!important;width:32px;height:32px}
+  .side .signout{display:inline-block!important;writing-mode:horizontal-tb;transform:none;padding:6px 2px;font-size:10px}
+  .side .signout.hidden{display:none!important}
+  .brandmark{width:36px!important;height:36px!important;padding:3px}
+}
+
 /* Interview coach */
 .turn{border-top:1px solid var(--faint);padding:14px 0}
 .turn.current{background:var(--deep);padding:14px;border-top:3px solid var(--ink)}

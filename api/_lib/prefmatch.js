@@ -31,7 +31,8 @@ export function preferenceMatch(prefs = {}, facts = {}) {
   if (facts.industry) {
     if (prefs.industries_avoid && overlaps(prefs.industries_avoid, facts.industry)) out.push({ status: "no", text: `${facts.industry}: an industry you avoid` });
     else if (prefs.industries_preferred && overlaps(prefs.industries_preferred, facts.industry)) out.push({ status: "ok", text: `${facts.industry}: a preferred industry` });
-    else out.push({ status: "warn", text: `${facts.industry}: not in your preferred industries` });
+    else if (prefs.industries_preferred) out.push({ status: "warn", text: `${facts.industry}: not in your preferred industries` });
+    else out.push({ status: "ok", text: facts.industry });
   }
 
   if (facts.level && facts.level !== "unknown" && prefs.level) {

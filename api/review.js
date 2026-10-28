@@ -23,7 +23,8 @@ export function scoreReview(ai, prefs, facts, posting) {
   const gaps = ai.gaps.map(undash).slice(0, 6);
 
   // Any number the model used must come from the profile or the posting.
-  const evidence = evidenceNumbers(posting, ...facts.filter((f) => f.verified).map((f) => f.text));
+  // Preferences (like a salary minimum) are the owner's own numbers too.
+  const evidence = evidenceNumbers(posting, ...facts.filter((f) => f.verified).map((f) => f.text), ...Object.values(prefs).filter((x) => x != null).map(String));
   const flags = [...strengths, ...gaps, ai.summary].flatMap((t) => checkText(t, evidence).filter((i) => i.kind === "number"));
 
   return {

@@ -118,3 +118,12 @@ test("review schema is strict", () => {
   };
   walk(REVIEW_SCHEMA);
 });
+
+test("no industry warning when no preferred industries are set", () => {
+  assert.deepEqual(preferenceMatch({}, { arrangement: "remote", industry: "Higher education" })[2], { status: "ok", text: "Higher education" });
+});
+
+test("numbers from the owner's preferences are not flagged", () => {
+  const r = scoreReview({ ...aiReview, summary: "Salary not posted against the 95000 minimum." }, { salary_min: 95000 }, [], "posting");
+  assert.deepEqual(r.flags.map((f) => f.value), ["4000"]);
+});

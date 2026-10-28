@@ -381,6 +381,21 @@ tbody tr:hover td{background:#FAFAF6}
 .doc.letter .signoff{margin-top:14pt}
 .guard ul{margin:6px 0 0;padding-left:18px}
 
+/* Interview coach */
+.turn{border-top:1px solid var(--faint);padding:14px 0}
+.turn.current{background:var(--deep);padding:14px;border-top:3px solid var(--ink)}
+.coach-question{font-weight:700;font-size:16px;margin:4px 0 10px}
+.coach-answer{width:100%;min-height:160px;border:0;border-bottom:2px solid var(--edge);background:#fff;padding:10px;font:inherit;color:var(--ink)}
+.feedback{margin-top:10px}
+.feedback .groupname{margin:12px 0 4px}
+.feedback ul{margin:0;padding-left:18px}
+.improved{background:var(--deep);padding:12px;border-left:3px solid var(--green);margin:4px 0}
+.scorebadge{display:inline-block;background:var(--lime);color:var(--ink);font-family:var(--mono);padding:3px 8px}
+.mine{color:var(--dim);white-space:pre-wrap}
+.prep summary{cursor:pointer}
+.story{margin:10px 0}
+.story p{margin:4px 0 0;font-size:13px}
+
 /* Upload review list */
 .picklist{list-style:none;padding:0;margin:0}
 .picklist li{padding:6px 0;border-bottom:1px solid var(--faint)}

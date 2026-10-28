@@ -15,6 +15,12 @@ let docs = [];
 let lastFocus = null;
 let resFilter = "all";
 
+// Per-browser drafts (coach answers). Storage can be blocked, so never rely on it.
+const store = {
+  get(key) { try { return localStorage.getItem(key); } catch { return null; } },
+  set(key, value) { try { localStorage.setItem(key, value); return true; } catch { return false; } },
+};
+
 function toast(text) {
   const el = $("#toast");
   el.textContent = text;
@@ -144,7 +150,7 @@ async function openJob(id) {
     ${prefHtml(d.pref_match)}
     ${d.strengths?.length || d.gaps?.length ? `<div class="section"><h3>Match notes</h3><div class="match-grid"><div><b>Strengths</b>${list(d.strengths)}</div><div><b>Gaps</b>${list(d.gaps)}</div></div></div>` : ""}
     ${!d.fit_breakdown ? `<div class="section"><div class="notice">${d.jd_text || d.source_url ? `No fit review yet. <button class="btn sm primary" id="reviewJob" style="margin-left:8px">Review and score</button>` : "No posting text saved, so this job can't be reviewed. Add the posting to review it."}</div></div>` : ""}
-    ${LIVE_STATUSES.has(job.status) ? `<div class="coach-cta"><div><b>Interview Coach</b><p>Practice one question at a time with feedback grounded in your profile.</p></div><button class="btn primary" disabled>Coming soon</button></div>` : ""}
+    ${job.status !== "EMPLOYER_REJECTED" ? `<div class="coach-cta"><div><b>Interview Coach</b><p>${LIVE_STATUSES.has(job.status) ? "Prepare for this interview" : "Practice for this role"}: one question at a time, with feedback grounded in your profile.</p></div><button class="btn primary" id="openCoach">Open coach</button></div>` : ""}
     <div class="section"><h3>Tailored documents</h3><div class="docbtns">${docBox("resume")}${docBox("letter")}</div><p class="soon">Written from your confirmed profile and base resume. A resume takes about a minute.</p></div>
     <div class="section"><h3>Application questions</h3><div id="qlist"></div>
       <form class="qform" id="qForm"><input id="qText" maxlength="2000" placeholder="Paste a question from the application" aria-label="Question"><input id="qLimit" type="number" min="1" placeholder="Char limit" aria-label="Character limit"></form>
@@ -154,6 +160,7 @@ async function openJob(id) {
     <div class="section"><h3>Application timeline</h3><ul>${(d.history || []).map((h) => `<li>${esc(STATUS[h.status] || h.status)} &middot; ${formatDate(h.at)}</li>`).join("") || "<li>No changes yet</li>"}</ul></div>
   `);
   $("#drawerStatus").addEventListener("change", (e) => changeStatus(id, e.target.value));
+  $("#openCoach")?.addEventListener("click", () => openCoach(job));
   $("#reviewJob")?.addEventListener("click", async (e) => {
     e.target.disabled = true;
     e.target.textContent = "Reviewing…";
@@ -503,6 +510,124 @@ async function addFact(kind, textEl, groupEl) {
   const group = groupEl?.value.trim() || (kind === "education" ? "Education" : "Other");
   const f = await attempt(() => source.addFact({ kind, group, text }), "Added as unverified. Confirm it to use it in documents.");
   if (f) { profile.facts.push(f); textEl.value = ""; renderProfile(); }
+}
+
+/* ---------- Interview coach ---------- */
+
+const STATE_NOTE = {
+  AWAIT_ANSWER: "Answer the question below.",
+  AWAIT_FOLLOWUP: "Answer the follow-up below.",
+  ASK_MAIN: "Ready for the next question.",
+  DONE: "Session ended.",
+};
+
+function transcriptText(job, data) {
+  return [`Practice interview: ${job.company}, ${job.role_title}`, ""].concat(data.turns.flatMap((t) => [
+    `${t.kind === "followup" ? "Follow-up" : "Question"}: ${t.question}`,
+    ...(t.answer ? [`My answer: ${t.answer}`, `Score: ${t.critique?.score ?? "-"}/5`, `Stronger answer: ${t.improved_answer || ""}`] : []),
+    "",
+  ])).join("\n");
+}
+
+async function openCoach(job, data) {
+  data ||= await attempt(() => source.getCoach(job.id));
+  if (!data) return;
+  const s = data.session;
+  const back = `<button class="btn sm" id="backJob" style="margin-top:16px">Back to ${esc(job.company)}</button>`;
+
+  if (!s) {
+    openDrawer(`${head(`Interview Coach · ${job.company}`, "Practice interview", job.role_title)}${back}
+      <div class="section"><div class="notice">The coach reads this posting and your confirmed profile, then gives you prep (what the hiring team needs, the likely concern, and STAR stories from your facts) and asks one question at a time. After each answer you get feedback, a stronger version, and one follow-up. About 5 cents to start and 2 to 3 cents per answer.</div>
+      <div class="savebar"><button class="btn primary" id="coachStart">Start practice interview</button></div></div>`, true);
+    $("#backJob").onclick = () => openJob(job.id);
+    $("#coachStart").onclick = async (e) => {
+      e.target.disabled = true;
+      e.target.textContent = "Preparing… about 30 seconds";
+      const out = await attempt(() => source.coachStart(job.id));
+      if (out) openCoach(job, out); else { e.target.disabled = false; e.target.textContent = "Start practice interview"; }
+    };
+    return;
+  }
+
+  const prep = s.prep || {};
+  const draftKey = `${source.mode}_coach_${s.id}`;
+  const open = data.turns.filter((t) => !t.answered_at).pop();
+  const turnHtml = (t) => {
+    const label = t.kind === "followup" ? "Follow-up" : `Question ${data.turns.filter((x) => x.kind === "main" && x.position <= t.position).length} of ${data.max_main}`;
+    if (!t.answered_at) {
+      return `<article class="turn current"><p class="eyebrow">${label}</p><p class="coach-question">${esc(t.question)}</p>
+        <textarea class="coach-answer" id="coachAnswer" maxlength="8000" aria-label="Your answer" placeholder="Answer as you would out loud. About 60 to 90 seconds.">${esc(store.get(draftKey) || "")}</textarea>
+        <div class="btnrow" style="margin-top:8px"><button class="btn primary" id="coachSubmit">Get feedback</button><span class="note" id="coachNote"></span></div></article>`;
+    }
+    const c = t.critique || {};
+    return `<article class="turn"><p class="eyebrow">${label}</p><p class="coach-question">${esc(t.question)}</p>
+      <details><summary>Your answer</summary><p class="mine">${esc(t.answer)}</p></details>
+      <div class="feedback"><p><b class="scorebadge">${c.score ?? "-"}/5</b></p>
+        ${c.worked?.length ? `<p class="groupname">What worked</p><ul>${c.worked.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+        ${c.improve?.length ? `<p class="groupname">Improve</p><ul>${c.improve.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+        ${t.improved_answer ? `<p class="groupname">A stronger version</p><p class="improved">${esc(t.improved_answer)}</p>` : ""}
+        ${t.guard_flags?.length ? `<div class="guard w"><b>Check:</b> ${t.guard_flags.map((f) => esc(f.message)).join(" ")}</div>` : ""}
+        ${c.new_facts?.length ? `<p class="groupname">New facts you mentioned</p><ul>${c.new_facts.map((f, i) => `<li>${esc(f)} <button class="linkbtn" data-newfact="${t.id}:${i}">add to profile as unverified</button></li>`).join("")}</ul>` : ""}
+      </div></article>`;
+  };
+
+  openDrawer(`${head(`Interview Coach · ${job.company}`, "Practice interview", job.role_title)}${back}
+    <details class="section prep" ${data.turns.length <= 1 ? "open" : ""}><summary><h3 style="display:inline">Prep</h3></summary>
+      <h3>What the hiring team needs most</h3><ul>${(prep.priorities || []).map((p) => `<li><b>${esc(p.title)}:</b> ${esc(p.detail)}</li>`).join("")}</ul>
+      <h3>Likely concern</h3><p>${esc(prep.concern || "")}</p>
+      <h3>Your stories</h3>${(prep.stories || []).map((x, i) => `<div class="story"><b>${i + 1}. ${esc(x.title)}</b>${x.priority ? ` <span class="note">(${esc(x.priority)})</span>` : ""}<p><b>S/T:</b> ${esc(x.situation)} <b>A:</b> ${esc(x.action)} <b>R:</b> ${esc(x.result)}</p></div>`).join("")}
+    </details>
+    <div class="section"><h3>Interview <span class="note">${esc(STATE_NOTE[s.state] || "")}</span></h3>${data.turns.map(turnHtml).join("")}</div>
+    <div class="btnrow" style="margin:6px 0 24px">
+      ${s.state === "ASK_MAIN" ? `<button class="btn primary" id="coachNext">Next question (${s.main_count + 1} of ${data.max_main})</button>` : ""}
+      ${s.state === "DONE" ? `<button class="btn primary" id="coachRestart">Start a new session</button>` : `<button class="btn" id="coachEnd">End session</button>`}
+      <button class="btn" id="coachCopy">Copy transcript</button>
+      <button class="btn" id="coachDelete">Delete session</button>
+    </div>`, true);
+
+  $("#backJob").onclick = () => openJob(job.id);
+  const ta = $("#coachAnswer");
+  if (ta) {
+    ta.addEventListener("input", () => store.set(draftKey, ta.value));
+    $("#coachSubmit").onclick = async () => {
+      const answer = ta.value.trim();
+      if (answer.length < 20) { ta.focus(); $("#coachNote").textContent = "Write a fuller answer first."; return; }
+      $("#coachSubmit").disabled = true;
+      $("#coachNote").textContent = "Reviewing your answer… about 20 seconds";
+      const out = await attempt(() => source.coachAnswer(s.id, answer));
+      if (!out) { $("#coachSubmit").disabled = false; $("#coachNote").textContent = ""; return; }
+      store.set(draftKey, "");
+      openCoach(job, out);
+    };
+    ta.focus();
+  }
+  $("#coachNext")?.addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    e.target.textContent = "Thinking of the next question…";
+    const out = await attempt(() => source.coachNext(s.id));
+    openCoach(job, out || undefined);
+  });
+  $("#coachEnd")?.addEventListener("click", async () => { const out = await attempt(() => source.coachEnd(s.id), "Session ended."); if (out) openCoach(job, out); });
+  $("#coachRestart")?.addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    e.target.textContent = "Preparing… about 30 seconds";
+    const out = await attempt(() => source.coachStart(job.id));
+    openCoach(job, out || undefined);
+  });
+  $("#coachCopy").onclick = async () => {
+    try { await navigator.clipboard.writeText(transcriptText(job, data)); toast("Transcript copied."); } catch { toast("Your browser blocked copying."); }
+  };
+  $("#coachDelete").onclick = async () => {
+    if (!confirm("Delete this practice session and all its answers?")) return;
+    if (await attempt(() => source.coachDelete(s.id), "Session deleted.")) openCoach(job, { session: null, turns: [], max_main: data.max_main });
+  };
+  $$("#drawer [data-newfact]").forEach((b) => (b.onclick = async () => {
+    const [tid, i] = b.dataset.newfact.split(":");
+    const text = data.turns.find((t) => String(t.id) === tid).critique.new_facts[Number(i)];
+    const f = await attempt(() => source.addFact({ kind: "result", group: "From practice interviews", text }), "Added as unverified. Confirm it on your Profile.");
+    if (f) { profile.facts.push(f); b.replaceWith(Object.assign(document.createElement("span"), { className: "note", textContent: "added, unverified" })); }
+  }));
+  if (open) $("#drawer").scrollTop = $("#drawer").scrollHeight;
 }
 
 /* ---------- Start: upload a resume or build one ---------- */

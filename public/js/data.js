@@ -13,6 +13,7 @@
 //   generateDoc(jobId, kind), exportWord(id)            (AI / server; the demo copies a sample)
 //   draftAnswer(jobId, { question, char_limit }), redraftAnswer(id)  (AI; the demo uses a sample)
 //   uploadResume(file), confirmFacts(facts, source), buildResume(entry)  (AI; the demo uses samples)
+//   getCoach(jobId), coachStart(jobId), coachAnswer(sid, answer), coachNext(sid), coachEnd(sid), coachDelete(sid)
 //
 // Demo writes change in-memory state only; nothing is sent anywhere.
 
@@ -35,6 +36,23 @@ function demoAnswer(limit) {
   const cut = DEMO_ANSWER.slice(0, limit);
   return cut.slice(0, Math.max(cut.lastIndexOf(". ") + 1, cut.lastIndexOf(" "))).trim();
 }
+
+// Demo coach: the same turn order as the server, with recorded feedback.
+const DEMO_FEEDBACK = {
+  score: 3,
+  worked: ["You led with a concrete example and a real result.", "You named who you worked with."],
+  improve: ["Open with the one-sentence answer before the story.", "Say what you would repeat at this college, not only what you did."],
+  improved_answer: "I turn repetitive design work into reviewed, repeatable workflows. At Northfield Community College, review rounds were slowing every course, so I introduced a shared review checklist and walked each designer through it. Average review rounds dropped from 3 to 2 across 40 courses. Here, I'd start the same way: learn how your team works now, test one change with the people who use it, and document it so it sticks.",
+  new_facts: [],
+};
+const DEMO_FOLLOW_UP = "What would you do differently if the checklist met resistance from senior designers?";
+const DEMO_NEXT = [
+  "Tell me about a time you had to train staff on a tool they didn't want to use.",
+  "How do you check that AI-generated course content is accurate before it reaches students?",
+  "Describe a time you balanced accessibility requirements against a tight deadline.",
+  "How would you decide which design workflow to automate first here?",
+  "Tell me about a project that didn't go as planned. What did you learn?",
+];
 
 export function demoSource() {
   let list = null;
@@ -64,6 +82,9 @@ export function demoSource() {
     return details.get(id);
   }
   const listRow = async (id) => (await loadList()).jobs.find((j) => j.id === id);
+  const coach = new Map(); // jobId -> { session, turns }
+  const coachFor = (sid) => [...coach.values()].find((c) => c.session.id === sid);
+  const MAX = 6;
 
   return {
     mode: "demo",
@@ -234,6 +255,49 @@ export function demoSource() {
       all.unshift(doc);
       return { document: doc, flags: [], facts_added: 0 };
     },
+    async getCoach(jobId) {
+      const c = coach.get(jobId);
+      return c ? clone({ ...c, max_main: MAX }) : { session: null, turns: [], max_main: MAX };
+    },
+    async coachStart(jobId) {
+      await new Promise((r) => setTimeout(r, 1800));
+      const d = (await detail(jobId))?.coach ? await detail(jobId) : await detail(101);
+      const c = d.coach;
+      const session = { id: `demo-${nextId++}`, job_id: jobId, state: "AWAIT_ANSWER", main_count: 1, created_at: new Date().toISOString(),
+        prep: { priorities: c.priorities, concern: c.concern, stories: c.stories.map((x) => ({ ...x, priority: "" })) } };
+      coach.set(jobId, { session, turns: [{ id: nextId++, position: 1, kind: "main", question: c.first_question.slice(0, c.first_question.indexOf("?") + 1) || c.first_question, answered_at: null }] });
+      return this.getCoach(jobId);
+    },
+    async coachAnswer(sid, answer) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const c = coachFor(sid);
+      const open = c.turns.find((t) => !t.answered_at);
+      if (!open) throw Object.assign(new Error("There's no open question. Ask for the next question first."), { status: 409 });
+      Object.assign(open, { answer, answered_at: new Date().toISOString(), critique: { score: DEMO_FEEDBACK.score, worked: DEMO_FEEDBACK.worked, improve: DEMO_FEEDBACK.improve, new_facts: DEMO_FEEDBACK.new_facts }, improved_answer: DEMO_FEEDBACK.improved_answer, guard_flags: [] });
+      if (open.kind === "main") {
+        c.session.state = "AWAIT_FOLLOWUP";
+        c.turns.push({ id: nextId++, position: c.turns.length + 1, kind: "followup", question: DEMO_FOLLOW_UP, answered_at: null });
+      } else c.session.state = c.session.main_count >= MAX ? "DONE" : "ASK_MAIN";
+      return this.getCoach(c.session.job_id);
+    },
+    async coachNext(sid) {
+      const c = coachFor(sid);
+      if (c.session.state !== "ASK_MAIN") throw Object.assign(new Error("Answer the follow-up question first."), { status: 409 });
+      await new Promise((r) => setTimeout(r, 1200));
+      c.turns.push({ id: nextId++, position: c.turns.length + 1, kind: "main", question: DEMO_NEXT[(c.session.main_count - 1) % DEMO_NEXT.length], answered_at: null });
+      Object.assign(c.session, { state: "AWAIT_ANSWER", main_count: c.session.main_count + 1 });
+      return this.getCoach(c.session.job_id);
+    },
+    async coachEnd(sid) {
+      const c = coachFor(sid);
+      c.session.state = "DONE";
+      return this.getCoach(c.session.job_id);
+    },
+    async coachDelete(sid) {
+      const c = coachFor(sid);
+      coach.delete(c.session.job_id);
+      return { deleted: sid };
+    },
     async draftAnswer(jobId, { question, char_limit }) {
       await new Promise((r) => setTimeout(r, 1500));
       const a = await this.addAnswer(jobId, { question, char_limit });
@@ -314,6 +378,12 @@ export function apiSource(getToken) {
     async reviewJob(id) { fresh(); return api(`review?job=${id}`, { method: "POST", body: {} }); },
     async generateDoc(jobId, kind) { return api(`generate?job=${jobId}&kind=${kind}`, { method: "POST", body: {} }); },
     async draftAnswer(jobId, fields) { fresh(); return api(`answer?job=${jobId}`, { method: "POST", body: fields }); },
+    async getCoach(jobId) { return api(`coach?job=${jobId}`); },
+    async coachStart(jobId) { return api(`coach?job=${jobId}&action=start`, { method: "POST", body: {} }); },
+    async coachAnswer(sid, answer) { return api(`coach?session=${sid}&action=answer`, { method: "POST", body: { answer } }); },
+    async coachNext(sid) { return api(`coach?session=${sid}&action=next`, { method: "POST", body: {} }); },
+    async coachEnd(sid) { return api(`coach?session=${sid}&action=end`, { method: "POST", body: {} }); },
+    async coachDelete(sid) { return api(`coach?session=${sid}`, { method: "DELETE" }); },
     async uploadResume(file) {
       if (file.size > 4 * 1024 * 1024) throw new Error("That file is larger than 4 MB.");
       const send = async (force) => {

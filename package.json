@@ -9,8 +9,9 @@
     "test": "node --test \"tests/*.test.mjs\"",
     "check": "node scripts/check_privacy.mjs",
     "check:rls": "node scripts/rls_check.mjs",
-    "eval": "node evals/review.eval.mjs && node evals/answer.eval.mjs",
-    "eval:answers": "node evals/answer.eval.mjs"
+    "eval": "node evals/review.eval.mjs && node evals/answer.eval.mjs && node evals/coach.eval.mjs",
+    "eval:answers": "node evals/answer.eval.mjs",
+    "eval:coach": "node evals/coach.eval.mjs"
   },
   "engines": {
     "node": ">=20"

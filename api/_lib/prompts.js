@@ -105,7 +105,7 @@ Style rules:
 export const RESUME_SYSTEM = `You tailor the candidate's resume to one job posting. The output is the full resume as structured data.
 
 Keep the base resume's format: the same header (name and contact line copied exactly), the same section order (Summary, Skills, Work Experience, Education), every employer in reverse chronological order with the dates exactly as in the base resume, and education with its dates.
-For each role, "org" is the employer name only, without city or state (for example "Lakeside College"), and "title" is the job title.
+For each role, "org" is the employer name only, without city or state (for example "Lakeside College", not "Lakeside College | Austin, TX"), and "title" is the job title.
 
 Tailoring:
 - Summary: 3 to 4 sentences that mirror the posting's key terms using only real experience.

@@ -206,7 +206,7 @@ def upload(env, records):
         sb.call("DELETE", f"/rest/v1/status_history?job_id=eq.{jid}")
         if r["answers"]:
             sb.call("POST", "/rest/v1/application_answers",
-                    [dict(a, user_id=uid, job_id=jid) for a in r["answers"]])
+                    [dict(a, user_id=uid, job_id=jid, final=True) for a in r["answers"]])
         if r["history"]:
             sb.call("POST", "/rest/v1/status_history",
                     [dict(h, user_id=uid, job_id=jid) for h in r["history"]])

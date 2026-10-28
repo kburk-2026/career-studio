@@ -1,5 +1,6 @@
-/* Career Studio: Night Shift theme. Charcoal dominant, lime as the one sharp accent,
-   cream text, orange only for warnings and unverified items. */
+/* Career Studio styles. The rules below build the Night Shift layout; the
+   "Paper and Ink" section at the end turns it into the live light theme:
+   a white page, a charcoal rail, lime only as a fill behind dark text. */
 /* Night Shift: charcoal dominant, lime as the one sharp accent, cream text, orange only for warnings. */
 :root{--bg:#2C2C2C;--deep:#222;--deeper:#1b1b1b;--ink:#F7F1D5;--dim:#f7f1d599;--faint:#f7f1d522;--lime:#B9FF2F;--green:#0B7A4B;--orange:#E86A17;--mono:"JetBrains Mono",monospace;--serif:"Instrument Serif",serif}
 *{box-sizing:border-box}
@@ -244,3 +245,114 @@ td:nth-child(2),.date,.qcount{white-space:nowrap}
   .editor{padding:22px 18px}
   .resrow{grid-template-columns:40px minmax(0,1fr)}.resrow .btnrow{grid-column:1/-1}
 }
+
+/* ===== Paper and Ink: light theme (WCAG AA contrast throughout) ===== */
+/* Light base, loaded after styles.css. Turns the Night Shift theme white while
+   keeping every text color at WCAG AA (4.5:1 body text, 3:1 large text and UI edges).
+   Lime is only ever a fill behind charcoal text; orange text uses #B4520F. */
+:root{
+  --bg:#FFFFFF; --ink:#2C2C2C; --dim:#5C5C58; --faint:#E2E2DC; --deep:#F5F5F1; --deeper:#ECECE6;
+  --edge:#76766F;           /* input and control edges: 4.6:1 on white */
+  --green:#0B7A4B;          /* 5.4:1 on white; white text on it 5.4:1 */
+  --orange-text:#B4520F;    /* 5.1:1 on white */
+  --lime:#B9FF2F;           /* fill only; charcoal text on it 11.6:1 */
+}
+body{background:#fff;color:var(--ink)}
+.demo-banner{background:var(--deep);color:var(--dim)}
+.demo-banner b,.linkbtn{color:var(--green)}
+
+/* Lime text never sits on white: use green text, or a lime fill. */
+.prompt b,.bigicon,.ico2,.chip .x[data-confirm],.drawer-head .eyebrow{color:var(--green)}
+.fig b.hot{color:var(--ink);background:linear-gradient(transparent 62%,var(--lime) 62%);padding:0 4px;margin-left:-4px;width:max-content}
+.dcard:first-child b{color:var(--ink)}
+.segs i{background:#DADAD3}.segs i.f{background:var(--green)}
+.meter{background:var(--deeper)}.meter span{background:var(--green)}
+.rubric .bar{background:var(--deeper)}.rubric .bar span{background:var(--ink)}
+
+/* Status menus: text label always present; colour is a second cue only. */
+.statusselect{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1px var(--edge)}
+.statusselect[data-s="INTERVIEWING"],.statusselect[data-s="INTERVIEW_DONE"],.statusselect[data-s="OFFER"]{color:var(--ink);background:var(--lime);box-shadow:none}
+.statusselect[data-s="EMPLOYER_REJECTED"]{color:var(--orange-text)}
+.statusselect[data-s="IN_PROGRESS"]{color:var(--ink);box-shadow:inset 0 0 0 1px var(--edge)}
+
+/* Orange text darkened for contrast. */
+.unverified,.warn,.error{color:var(--orange-text)}
+.chip.unv{box-shadow:inset 0 0 0 1px var(--orange-text)}
+
+/* Badges */
+.b-sent{background:var(--lime);color:var(--ink)}
+.b-draft{background:var(--orange-text);color:#fff}
+.b-gen{background:var(--ink);color:#fff}
+.b-up{background:var(--deeper);color:var(--ink)}
+
+/* Controls */
+.btn{color:var(--ink);box-shadow:inset 0 0 0 2px var(--ink)}
+.btn:hover{background:var(--deep)}
+.brandmark{color:var(--ink)}
+.toolbar select{background:#fff;box-shadow:inset 0 0 0 1px var(--edge)}
+.field input,.field select,.field textarea,.addrow input,.addrow select{background:#fff;border-bottom:2px solid var(--edge);color:var(--ink)}
+.field input:focus,.field select:focus,.field textarea:focus,.addrow input:focus,.qform input:focus{border-bottom-color:var(--green)}
+.btn:focus-visible,.nav button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,.editor:focus-visible,tbody tr:focus-visible{outline:3px solid var(--green);outline-offset:2px}
+.chip{background:#fff;box-shadow:inset 0 0 0 1px var(--faint)}
+.drop{border-color:var(--edge)}
+
+/* Drawer: white sheet. Themes decide the header treatment. */
+.drawer-bg{background:#2c2c2c99}
+.drawer{background:#fff;color:var(--ink)}
+.drawer-head{color:var(--ink)}
+.drawer-head .role,.detailmeta{color:var(--dim)}
+.close{color:inherit}
+.drawer-head .statusselect{background:#fff;color:var(--ink)!important;box-shadow:inset 0 0 0 1px var(--edge)}
+.detailcards{background:var(--deep);color:var(--ink);border-top:0}
+.coach-cta,.docbox{background:var(--deep);color:var(--ink)}
+.docbox .btn:not(.primary){box-shadow:inset 0 0 0 2px var(--ink)}
+.drawer .btn.primary,.drawer .docbox .btn.primary,.drawer .coach-cta .btn.primary{background:var(--ink);color:#fff}
+.qitem{background:var(--deep);box-shadow:inset 3px 0 0 var(--ink)}
+.qitem textarea{color:var(--ink);background:#fff;border-bottom:2px solid var(--edge);padding:8px}
+.qform input{background:#fff!important;color:var(--ink)!important;border-bottom:2px solid var(--edge)!important}
+.qmeta,.noanswers,.signin-note,.drawer .soon,.drawer .notice{color:var(--dim)}
+.drawer .notice,.jd{background:var(--deep)}
+.jd{color:var(--ink)}
+.signin-form input{background:#fff;border-bottom-color:var(--edge);color:var(--ink)}
+.guard{background:var(--green);color:#fff}
+.guard.w{background:var(--orange-text);color:#fff}
+.editor{box-shadow:0 0 0 1px var(--edge)}
+.toast{background:var(--ink);color:#fff;box-shadow:inset 0 -4px 0 var(--lime)}
+.avatar{border-color:var(--faint);color:var(--dim)}
+.notice{background:var(--deep);color:var(--dim)}
+
+/* A. Paper & Ink: bright white page, the charcoal rail kept as the anchor.
+   Lime appears only on the dark rail and as a highlighter fill. */
+.side{background:#2C2C2C}
+.nav button{color:#D9D9D2}
+.nav button:hover{color:#fff}
+.nav button.active{color:var(--lime);box-shadow:inset -3px 0 0 var(--lime)}
+.signout{color:#BDBDB5}
+.avatar{border-color:#4a4a46;color:#D9D9D2}
+.brandmark{background:var(--lime);color:#2C2C2C}
+
+.prompt{background:#fff;box-shadow:inset 0 0 0 2px var(--ink);color:var(--dim)}
+.btn.primary{background:var(--ink);color:#fff}
+.btn.primary:hover{background:#000}
+.figures{border-top:3px solid var(--ink);border-bottom:1px solid var(--ink)}
+.fig{border-right:1px solid var(--faint)}
+.fig span,th,.count,.eyebrow{color:var(--dim)}
+
+/* Rows: white, separated by hairlines instead of grey blocks. */
+td{background:#fff;border-top:0;border-bottom:1px solid var(--faint)}
+tbody tr:hover td{background:#FAFAF6}
+.card,.bigcard{background:#fff;box-shadow:inset 0 0 0 1px var(--faint)}
+.card{border-top:3px solid var(--ink)}
+.bigcard:hover{background:#fff;box-shadow:inset 0 0 0 2px var(--ink)}
+.resrow{background:#fff;border-bottom:1px solid var(--faint)}
+.resrow:hover{background:#FAFAF6}
+.ico2{background:var(--deep)}
+.seg button{color:var(--dim)}
+
+.drawer{border-left:10px solid var(--lime)}
+.drawer-head{background:#2C2C2C;color:#fff}
+.drawer-head .role,.drawer-head .detailmeta{color:#CFCFC7}
+.drawer-head .eyebrow{color:var(--lime)}
+
+/* Phone: keep the active-tab marker under the label in the top bar. */
+@media(max-width:760px){.nav button.active{box-shadow:inset 0 -3px 0 var(--lime)}}

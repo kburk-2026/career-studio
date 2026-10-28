@@ -184,7 +184,7 @@ export function answerContent({ posting, company, role, question, limit, previou
 export const EXTRACT_SYSTEM = `You read one resume and list what it says, so the candidate can confirm each item for their profile.
 
 Copy the resume's own wording. Do not rephrase, summarize, combine, improve, or add anything. Split long paragraphs into one item per accomplishment or responsibility, keeping the original words.
-- roles: every position, with the employer, title, and dates exactly as written.
+- roles: every position, with the title and dates exactly as written; "org" is the employer name only, without city or state.
 - results: accomplishments and responsibilities, each tagged with its employer.
 - skills: named skills, tools, platforms, and methods, grouped under short headings (use the resume's own groupings when it has them).
 - education: degrees and certifications with dates.

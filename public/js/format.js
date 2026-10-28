@@ -97,3 +97,15 @@ export function profileStrength(prefs = {}, facts = []) {
   const done = checks.filter(([ok]) => ok !== undefined && ok !== null && ok !== "" && ok !== false).length;
   return { percent: Math.round((done / checks.length) * 100), missing: checks.filter(([ok]) => !ok).map(([, tip]) => tip) };
 }
+
+// Word-overlap similarity (0 to 1) between two statements, ignoring case,
+// punctuation, and short filler words. Used to spot facts already in the profile.
+const STOP = new Set(["a", "an", "and", "the", "of", "to", "for", "in", "on", "with", "by", "at", "as", "from", "into", "across", "its", "their", "s"]);
+const tokens = (t) => new Set(String(t || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter((w) => w.length > 1 && !STOP.has(w)));
+export function similarity(a, b) {
+  const x = tokens(a), y = tokens(b);
+  if (!x.size || !y.size) return 0;
+  let shared = 0;
+  for (const w of x) if (y.has(w)) shared++;
+  return shared / Math.min(x.size, y.size);
+}

@@ -1,5 +1,5 @@
 import { pickSource } from "./data.js";
-import { STATUS, STATUS_KEYS, LIVE_STATUSES, esc, formatDate, filterJobs, computeStats, RUBRIC, profileStrength } from "./format.js";
+import { STATUS, STATUS_KEYS, LIVE_STATUSES, esc, formatDate, filterJobs, computeStats, RUBRIC, profileStrength, similarity } from "./format.js";
 import { renderDoc, readDoc } from "./doc.js";
 import { checkDraft, evidenceNumbers } from "./checks.js";
 import { loadConfig, consumeRedirect, hasSession, getAccessToken, sendMagicLink, signOut } from "./auth.js";
@@ -524,22 +524,25 @@ function openUpload() {
 }
 
 function showExtracted(x) {
-  const known = new Set((profile.facts || []).map((f) => norm(f.text)));
+  const existing = (profile.facts || []).map((f) => f.text);
+  const known = new Set(existing.map(norm));
+  // Exact matches, or close rewordings (most of the meaningful words shared).
+  const isKnown = (t) => known.has(norm(t)) || existing.some((e) => similarity(t, e) >= 0.75);
   const items = [
     ...(x.summary ? [{ kind: "summary", group: "Summary", text: x.summary }] : []),
     ...x.roles.map((r) => ({ kind: "role", group: r.org, text: `${r.title}, ${r.org}${r.dates ? ` (${r.dates})` : ""}` })),
     ...x.results.map((r) => ({ kind: "result", group: r.employer, text: r.text })),
     ...x.skills.flatMap((g) => g.items.map((t) => ({ kind: "skill", group: g.group, text: t }))),
     ...x.education.map((e) => ({ kind: "education", group: "Education", text: e.dates ? `${e.text} (${e.dates})` : e.text })),
-  ].map((it, i) => ({ ...it, i, dup: known.has(norm(it.text)) }));
+  ].map((it, i) => ({ ...it, i, dup: isKnown(it.text) }));
   const SECTIONS = [["summary", "Summary"], ["role", "Roles"], ["result", "Results and responsibilities"], ["skill", "Skills"], ["education", "Education"]];
   const fresh = items.filter((it) => !it.dup).length;
-  $("#upResult").innerHTML = `<div class="section"><h3>Found ${items.length} items${fresh < items.length ? `, ${items.length - fresh} already in your profile` : ""}</h3>
+  $("#upResult").innerHTML = `<div class="section"><h3>Found ${items.length} items${fresh < items.length ? `, ${items.length - fresh} similar to what's already in your profile` : ""}</h3>
     <p class="sub">Untick anything that isn't right. Only ticked items join your profile, as confirmed.</p>
     <div class="btnrow" style="margin:10px 0"><button class="btn sm" id="tickAll">Tick all new</button><button class="btn sm" id="tickNone">Untick all</button></div>
     ${SECTIONS.map(([kind, title]) => {
       const group = items.filter((it) => it.kind === kind);
-      return group.length ? `<p class="groupname" style="margin:14px 0 6px">${title}</p><ul class="picklist">${group.map((it) => `<li><label><input type="checkbox" data-i="${it.i}" ${it.dup ? "" : "checked"}> ${esc(it.text)}${it.group && !["Summary", "Education"].includes(it.group) && kind !== "role" ? ` <span class="note">(${esc(it.group)})</span>` : ""}${it.dup ? ' <span class="note">already in your profile</span>' : ""}</label></li>`).join("")}</ul>` : "";
+      return group.length ? `<p class="groupname" style="margin:14px 0 6px">${title}</p><ul class="picklist">${group.map((it) => `<li><label><input type="checkbox" data-i="${it.i}" ${it.dup ? "" : "checked"}> ${esc(it.text)}${it.group && !["Summary", "Education"].includes(it.group) && kind !== "role" ? ` <span class="note">(${esc(it.group)})</span>` : ""}${it.dup ? ' <span class="note">similar to an item in your profile</span>' : ""}</label></li>`).join("")}</ul>` : "";
     }).join("")}
     <div class="savebar"><button class="btn primary" id="confirmUp"></button></div></div>`;
   const boxes = () => $$("#upResult input[type=checkbox]");

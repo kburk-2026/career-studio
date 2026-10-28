@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { esc, formatDate, filterJobs, computeStats, fitFromBreakdown, profileStrength, localToday } from "../public/js/format.js";
+import { esc, formatDate, filterJobs, computeStats, fitFromBreakdown, profileStrength, localToday, similarity } from "../public/js/format.js";
 
 const jobs = [
   { id: 1, company: "Beta", role_title: "Designer", status: "APPLIED", applied_on: "2026-10-01", fit_score: 70 },
@@ -50,4 +50,12 @@ test("profile strength names what's missing", () => {
   assert.ok(empty.missing[1].startsWith("Desired salary"));
   const some = profileStrength({ salary_min: 100000, arrangement: "Remote" }, [{ kind: "skill", verified: true }]);
   assert.equal(some.percent, 30);
+});
+
+test("close rewordings of a fact count as similar; different facts do not", () => {
+  const profile = "Launched a Digital Asset Management system that centralized content production and saved the instructional design and media team roughly 20 hours each week.";
+  const resume = "Launched a Digital Asset Management system that centralized content production, saving roughly 20 hours a week across the instructional design and media team.";
+  assert.ok(similarity(resume, profile) >= 0.75);
+  assert.ok(similarity("Led a team of five to establish course development standards", profile) < 0.4);
+  assert.equal(similarity("", profile), 0);
 });

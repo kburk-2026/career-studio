@@ -1,6 +1,7 @@
 import { pickSource } from "./data.js";
 import { STATUS, STATUS_KEYS, LIVE_STATUSES, esc, formatDate, filterJobs, computeStats, RUBRIC, profileStrength } from "./format.js";
 import { renderDoc, readDoc } from "./doc.js";
+import { checkDraft, evidenceNumbers } from "./checks.js";
 import { loadConfig, consumeRedirect, hasSession, getAccessToken, sendMagicLink, signOut } from "./auth.js";
 
 const linkError = consumeRedirect();
@@ -134,7 +135,7 @@ async function openJob(id) {
     return `<div class="docbox"><b>${label}${doc ? (doc.sent ? '<span class="badge b-sent">Sent</span>' : '<span class="badge b-draft">Draft</span>') : ""}</b>
       <small>${doc ? esc(doc.file_name || doc.title) : `No ${label.toLowerCase()} yet`}</small>
       <div class="btnrow">${doc ? `<button class="btn sm" data-open="${doc.id}">Open</button>` : ""}
-      <button class="btn sm ${doc ? "" : "primary"}" disabled title="${SOON}">${doc ? "New version" : `Generate`}</button></div></div>`;
+      <button class="btn sm ${doc ? "" : "primary"}" data-gen="${kind}">${doc ? "New version" : "Generate"}</button></div></div>`;
   };
 
   openDrawer(`
@@ -145,7 +146,7 @@ async function openJob(id) {
     ${d.strengths?.length || d.gaps?.length ? `<div class="section"><h3>Match notes</h3><div class="match-grid"><div><b>Strengths</b>${list(d.strengths)}</div><div><b>Gaps</b>${list(d.gaps)}</div></div></div>` : ""}
     ${!d.fit_breakdown ? `<div class="section"><div class="notice">${d.jd_text || d.source_url ? `No fit review yet. <button class="btn sm primary" id="reviewJob" style="margin-left:8px">Review and score</button>` : "No posting text saved, so this job can't be reviewed. Add the posting to review it."}</div></div>` : ""}
     ${LIVE_STATUSES.has(job.status) ? `<div class="coach-cta"><div><b>Interview Coach</b><p>Practice one question at a time with feedback grounded in your profile.</p></div><button class="btn primary" disabled>Coming soon</button></div>` : ""}
-    <div class="section"><h3>Tailored documents</h3><div class="docbtns">${docBox("resume")}${docBox("letter")}</div><p class="soon">Generating tailored resumes and letters: ${SOON}</p></div>
+    <div class="section"><h3>Tailored documents</h3><div class="docbtns">${docBox("resume")}${docBox("letter")}</div><p class="soon">Written from your confirmed profile and base resume. A resume takes about a minute.</p></div>
     <div class="section"><h3>Application questions</h3><div id="qlist"></div>
       <form class="qform" id="qForm"><input id="qText" maxlength="2000" placeholder="Paste a question from the application" aria-label="Question"><input id="qLimit" type="number" min="1" placeholder="Char limit" aria-label="Character limit"></form>
       <div class="btnrow" style="margin-top:8px"><button class="btn sm primary" id="qAdd">Add question</button><button class="btn sm" disabled title="${SOON}">Add and draft answer</button></div></div>
@@ -161,6 +162,17 @@ async function openJob(id) {
     if (done) openJob(id); else { e.target.disabled = false; e.target.textContent = "Review and score"; }
   });
   $$("#drawer [data-open]").forEach((b) => (b.onclick = () => openDoc(Number(b.dataset.open), id)));
+  $$("#drawer [data-gen]").forEach((b) => (b.onclick = async () => {
+    const kind = b.dataset.gen;
+    if (!d.jd_text) { toast("Add the posting text to this job first."); return; }
+    $$("#drawer [data-gen]").forEach((x) => (x.disabled = true));
+    b.textContent = "Writing…";
+    toast(`Writing your tailored ${kind === "letter" ? "cover letter" : "resume"}. This takes about a minute.`);
+    const out = await attempt(() => source.generateDoc(id, kind));
+    if (!out) { $$("#drawer [data-gen]").forEach((x) => (x.disabled = false)); b.textContent = "Generate"; return; }
+    await refreshDocs();
+    openDoc(out.document.id, id);
+  }));
   renderQuestions(id, d.answers);
   const add = async () => {
     const question = $("#qText").value.trim();
@@ -331,17 +343,42 @@ async function openDoc(id, backJobId) {
 
   openDrawer(`${head(`${doc.kind === "letter" ? "Cover letter" : "Resume"}${job ? ` · ${job.company}` : ""}`, doc.title, doc.file_name || "")}
     ${back}
-    ${doc.sent ? `<div class="guard w"><b>This is the version you sent.</b> It is locked. Editing makes a new copy.</div>` : ""}
+    ${doc.sent ? `<div class="guard w"><b>This is the version you sent.</b> It is locked. Editing makes a new copy.</div>` : `<div id="checks"></div>`}
     <div class="toolbar2">
       ${doc.sent ? "" : `<button class="btn sm" data-cmd="bold" aria-label="Bold"><b>B</b></button><button class="btn sm" data-cmd="italic" aria-label="Italic"><i>I</i></button><button class="btn sm" data-cmd="insertUnorderedList">List</button>`}
       <span style="flex:1"></span>
       <button class="btn sm" id="saveDoc">${doc.sent ? "Edit as new copy" : "Save"}</button>
       <button class="btn sm" id="dlPdf">Download PDF</button>
-      <button class="btn sm" disabled title="${SOON}">Download Word</button>
+      <button class="btn sm" id="dlWord">Download Word</button>
       ${!doc.sent ? `<button class="btn primary sm" id="markSent">Mark as sent</button>` : ""}
     </div>
-    <div class="editor" id="editor" contenteditable="${doc.sent ? "false" : "true"}" spellcheck="true" aria-label="Document editor">${renderDoc(doc.kind, doc.content)}</div>
-    <p class="soon">Download PDF opens your browser's print dialog; choose Save as PDF.</p>`, true);
+    <p class="soon" id="pages"></p>
+    <div class="editor k-${doc.kind}" id="editor" contenteditable="${doc.sent ? "false" : "true"}" spellcheck="true" aria-label="Document editor">${renderDoc(doc.kind, doc.content)}</div>
+    <p class="soon">Download PDF opens your browser's print dialog; choose Save as PDF. Edit any text in place, then Save.</p>`, true);
+
+  // The same checks the server ran, re-run as you edit.
+  const evidence = evidenceNumbers(...(profile.facts || []).filter((f) => f.verified).map((f) => f.text));
+  const recheck = () => {
+    const content = readDoc(doc.kind, $("#editor"));
+    if (!doc.sent) {
+      const issues = checkDraft(doc.kind, content, evidence);
+      $("#checks").innerHTML = issues.length
+        ? `<div class="guard w"><b>Check before sending:</b><ul>${issues.map((i) => `<li>${esc(i.message)}</li>`).join("")}</ul></div>`
+        : `<div class="guard"><b>Checks passed.</b> Every number appears in your confirmed facts, with no dashes, filler phrases, or unheld titles.</div>`;
+    }
+    const pages = estimatePages(doc.kind, $("#editor"));
+    $("#pages").innerHTML = `About ${pages} page${pages === 1 ? "" : "s"}${doc.kind === "resume" && pages > 2 ? ` <span class="error">: over the two-page limit. Tighten wording or drop the least relevant bullet.</span>` : ""}`;
+  };
+  recheck();
+  let timer;
+  $("#editor").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(recheck, 600); });
+  $("#dlWord").onclick = async () => {
+    const file = await attempt(() => source.exportWord(doc.id));
+    if (!file) return;
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(file.blob), download: file.name });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
 
   $("#backJob")?.addEventListener("click", () => openJob(job.id));
   $$("#drawer [data-cmd]").forEach((b) => (b.onclick = () => { document.execCommand(b.dataset.cmd); $("#editor").focus(); }));
@@ -352,10 +389,10 @@ async function openDoc(id, backJobId) {
       return;
     }
     const content = readDoc(doc.kind, $("#editor"));
-    if (await attempt(() => source.saveDocument(doc.id, { content }), "Saved.")) { doc.content = content; refreshDocs(); }
+    if (await attempt(() => source.saveDocument(doc.id, { content }), "Saved.")) { doc.content = content; refreshDocs(); recheck(); }
   };
   $("#dlPdf").onclick = () => {
-    $("#printArea").innerHTML = `<div class="editor">${$("#editor").innerHTML}</div>`;
+    $("#printArea").innerHTML = $("#editor").innerHTML;
     window.print();
   };
   $("#markSent")?.addEventListener("click", async () => {
@@ -364,6 +401,18 @@ async function openDoc(id, backJobId) {
     if (!(await attempt(() => source.saveDocument(doc.id, { content })))) return;
     if (await attempt(() => source.markSent(doc.id), "Marked as sent and locked.")) { await Promise.all([refreshDocs(), refreshJobs()]); openDoc(doc.id, backJobId); }
   });
+}
+
+// Lays the document out at Letter size with its print margins and counts pages.
+const PAGE = { resume: { width: 8.5 - 1.04, height: 11 - 0.76 }, letter: { width: 8.5 - 1.7, height: 11 - 1.4 } };
+function estimatePages(kind, editor) {
+  const probe = document.createElement("div");
+  probe.style.cssText = `position:absolute;left:-10000px;top:0;width:${PAGE[kind].width}in;visibility:hidden`;
+  probe.innerHTML = editor.innerHTML;
+  document.body.appendChild(probe);
+  const height = probe.getBoundingClientRect().height;
+  probe.remove();
+  return Math.max(1, Math.ceil(height / (PAGE[kind].height * 96) - 0.02));
 }
 
 /* ---------- Profile ---------- */

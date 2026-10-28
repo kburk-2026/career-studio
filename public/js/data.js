@@ -10,6 +10,7 @@
 //   listDocuments(), getDocument(id), saveDocument(id, fields), copyDocument(id),
 //   markSent(id), documentFileUrl(id)
 //   reviewPosting({ text } | { url }), reviewJob(id)   (AI; the demo replays a recorded review)
+//   generateDoc(jobId, kind), exportWord(id)            (AI / server; the demo copies a sample)
 //
 // Demo writes change in-memory state only; nothing is sent anywhere.
 
@@ -180,6 +181,19 @@ export function demoSource() {
       const sample = await getJson(`${DEMO_ROOT}review.json`);
       return { ...sample, jd_text: text || sample.jd_text, source_url: url || null };
     },
+    async generateDoc(jobId, kind) {
+      await new Promise((r) => setTimeout(r, 2200));
+      const all = await loadDocs();
+      const sample = all.find((d) => d.kind === kind && d.content);
+      const job = await listRow(jobId);
+      const doc = { ...clone(sample), id: nextId++, job_id: jobId, parent_id: null, sent: false, sent_at: null, created_at: new Date().toISOString(),
+        title: `${kind === "letter" ? "Cover letter" : "Resume"} · ${job.company}`, file_name: `Jordan_Avery_${job.company.replace(/\W+/g, "")}.pdf` };
+      all.unshift(doc);
+      return { document: doc, flags: [], cost: 0 };
+    },
+    async exportWord() {
+      throw new Error("Word download works when signed in. The demo can download PDF.");
+    },
     async reviewJob(id) {
       const sample = await this.reviewPosting({});
       const d = await detail(id);
@@ -243,6 +257,14 @@ export function apiSource(getToken) {
     async documentFileUrl(id) { return (await api(`documents?id=${id}&file=1`)).url; },
     async reviewPosting(input) { return api("review", { method: "POST", body: input }); },
     async reviewJob(id) { fresh(); return api(`review?job=${id}`, { method: "POST", body: {} }); },
+    async generateDoc(jobId, kind) { return api(`generate?job=${jobId}&kind=${kind}`, { method: "POST", body: {} }); },
+    async exportWord(id) {
+      const token = await getToken();
+      const res = await fetch(`api/export?id=${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Word export failed (${res.status}).`);
+      const name = (res.headers.get("content-disposition") || "").match(/filename="([^"]+)"/)?.[1] || "document.docx";
+      return { blob: await res.blob(), name };
+    },
   };
 }
 

@@ -1,39 +1,49 @@
 // Resume and cover-letter templates.
 //
-// Documents are stored as structured content, rendered into a locked,
-// single-column, ATS-friendly layout for in-place editing, and read back
-// from the edited DOM. Each editable piece carries a data-f attribute.
+// Documents are stored as structured content and rendered into a locked,
+// single-column, ATS-friendly layout (ported from JobHuntAgent's
+// resume_base.html: same section order, sizes, and no tables). Each editable
+// piece carries a data-f attribute so edits read back into structure.
 //
-// resume: { name, contact, summary, roles: [{ title, org, dates, bullets: [] }],
-//           skills: [{ label, items }], education: [] }
-// letter: { greeting, paragraphs: [], closing, signature }
+// resume: { name, contact, summary, skills: [{ label, items }],
+//           roles: [{ org, title, dates, bullets: [] }],
+//           education: [{ text, dates }] }      (education may also be strings)
+// letter: { name, contact, date, recipient, subject, greeting,
+//           paragraphs: [], closing, signature }
 
 import { esc } from "./format.js";
 
 const li = (items) => (items || []).map((x) => `<li>${esc(x)}</li>`).join("") || "<li></li>";
+const eduItem = (e) => (typeof e === "string" ? { text: e, dates: "" } : e || {});
 
 export function renderResume(c = {}) {
-  return `<h1 data-f="name">${esc(c.name)}</h1>
-<p data-f="contact">${esc(c.contact)}</p>
+  return `<div class="doc resume">
+<p class="name" data-f="name">${esc(c.name)}</p>
+<p class="contact" data-f="contact">${esc(c.contact)}</p>
 <h2>Summary</h2>
-<p data-f="summary">${esc(c.summary)}</p>
-<h2>Experience</h2>
-${(c.roles || []).map((r) => `<div class="role" data-role>
-<p><b data-f="title">${esc(r.title)}</b> &middot; <span data-f="org">${esc(r.org)}</span> <span class="dates" data-f="dates">${esc(r.dates)}</span></p>
+<p class="summary" data-f="summary">${esc(c.summary)}</p>
+<h2>Skills</h2>
+${(c.skills || []).map((s) => `<p class="skill" data-skill><b data-f="label">${esc(s.label)}</b>: <span data-f="items">${esc(s.items)}</span></p>`).join("\n")}
+<h2>Work Experience</h2>
+${(c.roles || []).map((r) => `<div class="job" data-role>
+<div class="row"><span class="left"><span data-f="org">${esc(r.org)}</span> - <span data-f="title">${esc(r.title)}</span></span><span class="right" data-f="dates">${esc(r.dates)}</span></div>
 <ul data-f="bullets">${li(r.bullets)}</ul>
 </div>`).join("\n")}
-<h2>Skills</h2>
-${(c.skills || []).map((s) => `<p data-skill><b data-f="label">${esc(s.label)}</b>: <span data-f="items">${esc(s.items)}</span></p>`).join("\n")}
 <h2>Education</h2>
-<ul data-f="education">${li(c.education)}</ul>`;
+${(c.education || []).map(eduItem).map((e) => `<div class="row" data-edu><span class="left" data-f="text">${esc(e.text)}</span><span class="right" data-f="dates">${esc(e.dates)}</span></div>`).join("\n")}
+</div>`;
 }
 
 export function renderLetter(c = {}) {
-  return `<div class="letter">
+  return `<div class="doc letter">
+<p class="name" data-f="name">${esc(c.name)}</p>
+<p class="contact" data-f="contact">${esc(c.contact)}</p>
+<div class="rule"></div>
+<div class="meta"><p data-f="date">${esc(c.date)}</p><p data-f="recipient">${esc(c.recipient)}</p></div>
+<p class="subject" data-f="subject">${esc(c.subject)}</p>
 <p data-f="greeting">${esc(c.greeting)}</p>
 <div data-f="paragraphs">${(c.paragraphs || []).map((p) => `<p>${esc(p)}</p>`).join("")}</div>
-<p data-f="closing">${esc(c.closing)}</p>
-<p data-f="signature">${esc(c.signature)}</p>
+<div class="signoff"><p data-f="closing">${esc(c.closing)}</p><p data-f="signature">${esc(c.signature)}</p></div>
 </div>`;
 }
 
@@ -46,30 +56,34 @@ export function readDoc(kind, root) {
   const f = (name, scope = root) => text(scope.querySelector(`[data-f="${name}"]`));
   if (kind === "letter") {
     return {
+      name: f("name"), contact: f("contact"), date: f("date"), recipient: f("recipient"), subject: f("subject"),
       greeting: f("greeting"),
       paragraphs: lines(root.querySelector('[data-f="paragraphs"]')),
-      closing: f("closing"),
-      signature: f("signature"),
+      closing: f("closing"), signature: f("signature"),
     };
   }
   return {
     name: f("name"),
     contact: f("contact"),
     summary: f("summary"),
+    skills: [...root.querySelectorAll("[data-skill]")].map((s) => ({ label: f("label", s), items: f("items", s) })),
     roles: [...root.querySelectorAll("[data-role]")].map((r) => ({
-      title: f("title", r), org: f("org", r), dates: f("dates", r),
+      org: f("org", r), title: f("title", r), dates: f("dates", r),
       bullets: lines(r.querySelector('[data-f="bullets"]')),
     })),
-    skills: [...root.querySelectorAll("[data-skill]")].map((s) => ({ label: f("label", s), items: f("items", s) })),
-    education: lines(root.querySelector('[data-f="education"]')),
+    education: [...root.querySelectorAll("[data-edu]")].map((e) => ({ text: f("text", e), dates: f("dates", e) })),
   };
 }
 
 // Plain text of a document, for checks (numbers, dashes) and word counts.
 export function docText(kind, c = {}) {
-  if (kind === "letter") return [c.greeting, ...(c.paragraphs || []), c.closing, c.signature].filter(Boolean).join("\n");
-  return [c.name, c.contact, c.summary,
-    ...(c.roles || []).flatMap((r) => [r.title, r.org, r.dates, ...(r.bullets || [])]),
+  if (kind === "letter") {
+    return [c.subject, c.greeting, ...(c.paragraphs || []), c.closing].filter(Boolean).join("\n");
+  }
+  return [c.summary,
     ...(c.skills || []).map((s) => `${s.label}: ${s.items}`),
-    ...(c.education || [])].filter(Boolean).join("\n");
+    ...(c.roles || []).flatMap((r) => [r.org, r.title, ...(r.bullets || [])]),
+    ...(c.education || []).map((e) => eduItem(e).text)].filter(Boolean).join("\n");
 }
+
+export const wordCount = (kind, c) => (docText(kind, c).match(/\S+/g) || []).length;

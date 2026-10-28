@@ -209,14 +209,16 @@ td:nth-child(2),.date,.qcount{white-space:nowrap}
 
 /* Print: only the document being exported */
 #printArea{display:none}
+@page resume{size:letter;margin:0.38in 0.52in}
+@page letter{size:letter;margin:0.7in 0.85in}
 @media print{
-  @page{size:letter;margin:0.6in}
+  .doc.resume{page:resume}
+  .doc.letter{page:letter}
   body{background:#fff}
   body > *:not(#printArea){display:none!important}
   #printArea{display:block!important}
-  #printArea .editor{box-shadow:none!important;padding:0!important;min-height:0;margin:0}
-  #printArea mark{background:none}
-  #printArea .note{display:none}
+  #printArea .doc h2,#printArea .doc .row{break-after:avoid}
+  #printArea .doc li{break-inside:avoid}
 }
 
 /* Phone */
@@ -353,6 +355,31 @@ tbody tr:hover td{background:#FAFAF6}
 .drawer-head{background:#2C2C2C;color:#fff}
 .drawer-head .role,.drawer-head .detailmeta{color:#CFCFC7}
 .drawer-head .eyebrow{color:var(--lime)}
+
+/* Documents: the locked resume and letter layout (from JobHuntAgent's templates) */
+.editor.k-resume{padding:0.38in 0.52in}
+.editor.k-letter{padding:0.7in 0.85in}
+.doc{font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif;color:#000;text-align:left;font-variant-ligatures:none;font-feature-settings:"liga" 0,"clig" 0}
+.doc.resume{font-size:9.8pt;line-height:1.17}
+.doc.letter{font-size:10.5pt;line-height:1.35}
+.doc p.name{font-size:20pt;font-weight:700;letter-spacing:.6pt;color:#1F4E79;margin:0 0 2pt;font-family:inherit}
+.doc p.contact{font-size:9.5pt;margin:0 0 8pt}
+.doc.resume p.name,.doc.resume p.contact{text-align:center}
+.doc.resume h2{font-family:inherit;font-size:10.5pt;font-weight:700;letter-spacing:.4pt;color:#1F4E79;text-transform:uppercase;border-bottom:.9pt solid #1F4E79;margin:6pt 0 3pt;padding-bottom:1pt}
+.doc.resume p{margin:0 0 2pt}
+.doc.resume .row{display:flex;justify-content:space-between;align-items:baseline;gap:10pt;margin:4pt 0 1pt}
+.doc.resume .row .left,.doc.resume .row .right{font-weight:700}
+.doc.resume [data-edu] .left,.doc.resume [data-edu] .right{font-weight:400}
+.doc.resume .right{white-space:nowrap}
+.doc.resume ul{margin:1pt 0 0;padding-left:13pt}
+.doc.resume li{margin:0 0 1pt;padding-left:1pt}
+.doc.letter .rule{border-bottom:1.1pt solid #1F4E79;margin:0 0 14pt}
+.doc.letter .meta{margin:0 0 12pt}
+.doc.letter .meta p,.doc.letter .signoff p{margin:0}
+.doc.letter .subject{font-weight:700;margin:0 0 12pt}
+.doc.letter p{margin:0 0 10pt}
+.doc.letter .signoff{margin-top:14pt}
+.guard ul{margin:6px 0 0;padding-left:18px}
 
 /* Score reasons */
 .reasons{margin-top:10px;font-size:13px}

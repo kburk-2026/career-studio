@@ -382,7 +382,7 @@ tbody tr:hover td{background:#FAFAF6}
 .guard ul{margin:6px 0 0;padding-left:18px}
 
 /* Brand icon and account corner */
-.brandmark{background:#fff!important;padding:4px;width:48px!important;height:48px!important}
+.brandmark{background:none!important;padding:0;width:52px!important;height:52px!important}
 .brandmark img{width:100%;height:100%;object-fit:contain;display:block}
 .account{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:10px}
 .side .avatar{margin:0;background:none;cursor:pointer;font:inherit;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.06em}
@@ -393,7 +393,7 @@ tbody tr:hover td{background:#FAFAF6}
   .side .avatar{display:grid!important;width:32px;height:32px}
   .side .signout{display:inline-block!important;writing-mode:horizontal-tb;transform:none;padding:6px 2px;font-size:10px}
   .side .signout.hidden{display:none!important}
-  .brandmark{width:36px!important;height:36px!important;padding:3px}
+  .brandmark{width:38px!important;height:38px!important;padding:0}
 }
 
 /* Panel width and expand */

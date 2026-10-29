@@ -9,6 +9,7 @@ import { generate } from "./_lib/ai/index.js";
 import { withBudget } from "./_lib/limits.js";
 import { profileContext, RESUME_SYSTEM, LETTER_SYSTEM, RESUME_SCHEMA, LETTER_SCHEMA, writerContent } from "./_lib/prompts.js";
 import { evidenceNumbers, checkDraft, undash } from "./_lib/guard.js";
+import { dedupeSkills, linksFromPrefs } from "../public/js/doc.js";
 
 // Removes dashes from every string in the draft before any check runs.
 export function undashAll(value) {
@@ -41,7 +42,7 @@ export const POST = handle(async (request) => {
   if (!job.jd_text) throw new HttpError(400, "This job has no posting text. Add the posting first.");
 
   const [facts, pdf] = await Promise.all([
-    rest(session, "profile_facts?select=kind,group_title,text,verified&verified=is.true&order=kind,group_title,position"),
+    rest(session, "profile_facts?select=kind,group_title,text,url,verified&verified=is.true&order=kind,group_title,position"),
     baseResumePdf(session),
   ]);
   if (!facts.length) throw new HttpError(400, "Your profile has no confirmed facts yet.");
@@ -64,6 +65,10 @@ export const POST = handle(async (request) => {
   );
 
   const draft = undashAll(data);
+  // Links come from the owner's profile, never from the model; skills appear once.
+  const [prefRow] = await rest(session, "profile_prefs?select=linkedin_url,portfolio_url,website_url");
+  draft.links = linksFromPrefs(prefRow);
+  if (draft.skills) draft.skills = dedupeSkills(draft.skills);
   const flags = checkDraft(kind, draft, evidenceNumbers(...facts.map((f) => f.text)));
   const label = kind === "letter" ? "Cover letter" : "Resume";
   const name = fileSafe((draft.name || "").split(/\s+/).map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join("_"));

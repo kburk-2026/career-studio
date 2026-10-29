@@ -5,17 +5,17 @@
 // use; unconfirmed facts are never sent.
 import { RUBRIC } from "../../public/js/format.js";
 
-const KIND_TITLES = { summary: "Summary", role: "Roles held", result: "Measured results", skill: "Skills", education: "Education and certifications" };
+const KIND_TITLES = { summary: "Summary", role: "Roles held", result: "Measured results", skill: "Skills", education: "Education and certifications", publication: "Presentations and publications" };
 
 // The confirmed profile as plain text, grouped. This is the cached context.
 export function profileContext(facts, prefs = {}) {
   const confirmed = facts.filter((f) => f.verified);
   const parts = [];
-  for (const kind of ["summary", "role", "result", "skill", "education"]) {
+  for (const kind of ["summary", "role", "result", "skill", "education", "publication"]) {
     const items = confirmed.filter((f) => f.kind === kind);
     if (!items.length) continue;
     parts.push(`## ${KIND_TITLES[kind]}`);
-    for (const f of items) parts.push(`- ${kind === "result" || kind === "skill" ? `[${f.group_title}] ` : ""}${f.text}`);
+    for (const f of items) parts.push(`- ${kind === "result" || kind === "skill" ? `[${f.group_title}] ` : ""}${f.text}${f.url ? ` (${f.url})` : ""}`);
   }
   const pref = Object.entries(prefs).filter(([, v]) => v !== null && v !== "" && v !== undefined).map(([k, v]) => `- ${k.replace(/_/g, " ")}: ${v}`);
   return `<candidate_profile>\nThese are the candidate's confirmed facts. They are the only evidence you may use.\n\n${parts.join("\n")}\n</candidate_profile>\n\n<job_preferences>\n${pref.join("\n") || "- none set"}\n</job_preferences>`;
@@ -105,6 +105,9 @@ Style rules:
 export const RESUME_SYSTEM = `You tailor the candidate's resume to one job posting. The output is the full resume as structured data.
 
 Keep the base resume's format: the same header (name and contact line copied exactly), the same section order (Summary, Skills, Work Experience, Education), every employer in reverse chronological order with the dates exactly as in the base resume, and education with its dates.
+The contact line holds only location, email, and phone; the app adds the candidate's web links (LinkedIn, portfolio) itself, so leave links out.
+Each skill appears once in the whole resume: never repeat a skill across skill lines.
+publications: include presentations and publications from the profile that fit this posting, with their links copied exactly (empty string when there is none). Leave the list empty if the profile has none.
 For each role, "org" is the employer name only, without city or state (for example "Lakeside College", not "Lakeside College | Austin, TX"), and "title" is the job title.
 
 Tailoring:
@@ -117,7 +120,7 @@ ${WRITING_RULES}`;
 
 export const LETTER_SYSTEM = `You write a one-page cover letter for the candidate for one job posting. The output is the letter as structured data.
 
-Header: the candidate's name and contact line copied exactly from the base resume; today's date; the employer's name as recipient; a subject line naming the role.
+Header: the candidate's name, and a contact line with only location, email, and phone from the base resume (the app adds web links); today's date; the employer's name as recipient; a subject line naming the role.
 Exactly four body paragraphs:
 1. Why this posting: what the role is about and why it fits the candidate's work, in plain language.
 2. One story with a real number from the profile, tied to a need in the posting.
@@ -132,12 +135,13 @@ const strs = { type: "array", items: str };
 
 export const RESUME_SCHEMA = {
   type: "object", additionalProperties: false,
-  required: ["name", "contact", "summary", "skills", "roles", "education"],
+  required: ["name", "contact", "summary", "skills", "roles", "education", "publications"],
   properties: {
     name: str, contact: str, summary: str,
     skills: { type: "array", items: { type: "object", additionalProperties: false, required: ["label", "items"], properties: { label: str, items: str } } },
     roles: { type: "array", items: { type: "object", additionalProperties: false, required: ["org", "title", "dates", "bullets"], properties: { org: str, title: str, dates: str, bullets: strs } } },
     education: { type: "array", items: { type: "object", additionalProperties: false, required: ["text", "dates"], properties: { text: str, dates: str } } },
+    publications: { type: "array", items: { type: "object", additionalProperties: false, required: ["text", "url"], properties: { text: str, url: str } } },
   },
 };
 

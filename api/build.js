@@ -10,6 +10,7 @@ import { generate } from "./_lib/ai/index.js";
 import { withBudget } from "./_lib/limits.js";
 import { profileContext, BUILD_SYSTEM, RESUME_SCHEMA, buildContent } from "./_lib/prompts.js";
 import { evidenceNumbers, checkDraft } from "./_lib/guard.js";
+import { dedupeSkills, linksFromPrefs } from "../public/js/doc.js";
 import { undashAll } from "./generate.js";
 
 const list = (x, field, max) => {
@@ -51,12 +52,16 @@ export const POST = handle(async (request) => {
   if (!entered.some((f) => f.kind === "role")) throw new HttpError(400, "Add at least one role.");
 
   await restWrite(session, "POST", "profile_facts?select=id", entered.map((f, i) => ({ ...f, position: 300 + i, verified: true, source: "app" })));
-  const facts = await rest(session, "profile_facts?select=kind,group_title,text,verified&verified=is.true&order=kind,group_title,position");
+  const facts = await rest(session, "profile_facts?select=kind,group_title,text,url,verified&verified=is.true&order=kind,group_title,position");
 
   const { data } = await withBudget(session, () =>
     generate({ task: "writer", system: BUILD_SYSTEM, cachedContext: profileContext(facts), content: buildContent(header), schema: RESUME_SCHEMA }),
   );
   const draft = undashAll(data);
+  // Links come from the owner's profile, never from the model; skills appear once.
+  const [prefRow] = await rest(session, "profile_prefs?select=linkedin_url,portfolio_url,website_url");
+  draft.links = linksFromPrefs(prefRow);
+  if (draft.skills) draft.skills = dedupeSkills(draft.skills);
   const flags = checkDraft("resume", draft, evidenceNumbers(...facts.map((f) => f.text)));
   const fileName = `${header.name.replace(/[^A-Za-z0-9]+/g, "_")}_Resume.pdf`;
   const [document] = await restWrite(session, "POST", "documents?select=id,kind,source,title,file_name,created_at", {

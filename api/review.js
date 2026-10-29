@@ -68,7 +68,7 @@ export const POST = handle(async (request) => {
   }
 
   const [facts, prefRows] = await Promise.all([
-    rest(session, "profile_facts?select=kind,group_title,text,verified&verified=is.true&order=kind,group_title,position"),
+    rest(session, "profile_facts?select=kind,group_title,text,url,verified&verified=is.true&order=kind,group_title,position"),
     rest(session, "profile_prefs?select=*"),
   ]);
   const { user_id, updated_at, ...prefs } = prefRows[0] || {};

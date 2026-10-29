@@ -15,7 +15,7 @@
       "updated_at": "2026-10-20T15:00:00Z",
       "content": {
         "name": "Jordan Avery",
-        "contact": "Remote, United States \u00b7 jordan.avery@example.com",
+        "contact": "Remote, United States | jordan.avery@example.com",
         "summary": "Instructional designer with 12 years in online learning at community colleges and universities, turning repetitive design work into reviewed, reusable workflows and measuring the results.",
         "roles": [
           {
@@ -49,6 +49,22 @@
             "text": "BA, English, Riverbend College",
             "dates": ""
           }
+        ],
+        "links": [
+          {
+            "label": "LinkedIn",
+            "url": "https://www.linkedin.com/in/example"
+          },
+          {
+            "label": "Portfolio",
+            "url": "https://example.com/portfolio"
+          }
+        ],
+        "publications": [
+          {
+            "text": "Review checklists that designers actually use, regional online learning conference",
+            "url": "https://example.com/talk"
+          }
         ]
       }
     },
@@ -66,7 +82,7 @@
       "updated_at": "2026-09-30T16:00:00Z",
       "content": {
         "name": "Jordan Avery",
-        "contact": "Remote, United States \u00b7 jordan.avery@example.com",
+        "contact": "Remote, United States | jordan.avery@example.com",
         "date": "September 30, 2026",
         "recipient": "Tallgrass Technical Institute",
         "subject": "Re: Online Program Developer",
@@ -78,7 +94,17 @@
           "I'd bring careful design, measured improvement, and a habit of documenting what works so a team can repeat it."
         ],
         "closing": "Sincerely,",
-        "signature": "Jordan Avery"
+        "signature": "Jordan Avery",
+        "links": [
+          {
+            "label": "LinkedIn",
+            "url": "https://www.linkedin.com/in/example"
+          },
+          {
+            "label": "Portfolio",
+            "url": "https://example.com/portfolio"
+          }
+        ]
       }
     },
     {

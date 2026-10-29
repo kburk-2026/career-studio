@@ -137,7 +137,41 @@ function prefHtml(match) {
   }).join("")}</div></div>`;
 }
 
+async function saveFile(make) {
+  const file = await attempt(make);
+  if (!file) return;
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(file.blob), download: file.name });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 const list = (items) => `<ul>${(items || []).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
+
+// The job panel's open tab, kept when the same job's panel re-renders
+// (a status change, a new answer, coming back from the coach).
+let panelTab = { id: null, tab: "overview" };
+
+function wireTabs(jobId) {
+  const tabs = $$("#drawer [role=tab]");
+  const show = (t, focus = false) => {
+    tabs.forEach((b) => {
+      const on = b === t;
+      b.setAttribute("aria-selected", on);
+      b.tabIndex = on ? 0 : -1;
+      $(`#pane-${b.dataset.tab}`).hidden = !on;
+    });
+    panelTab = { id: jobId, tab: t.dataset.tab };
+    if (focus) t.focus();
+  };
+  tabs.forEach((b, i) => {
+    b.onclick = () => show(b);
+    b.onkeydown = (e) => {
+      const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+      if (step) { e.preventDefault(); show(tabs[(i + step + tabs.length) % tabs.length], true); }
+    };
+  });
+  panelTab = { id: jobId, tab: tabs.find((b) => b.getAttribute("aria-selected") === "true")?.dataset.tab || "overview" };
+}
 
 async function openJob(id) {
   const job = jobs.find((j) => j.id === id);
@@ -154,22 +188,32 @@ async function openJob(id) {
       <button class="btn sm ${doc ? "" : "primary"}" data-gen="${kind}">${doc ? "New version" : "Generate"}</button></div></div>`;
   };
 
+  // Tabs, in workflow order; the coach comes last. Every pane is rendered up
+  // front (hidden when inactive) so the wiring below finds its elements.
+  const panes = [
+    ["overview", "Overview", `${rubricHtml(d.fit_breakdown)}
+      ${prefHtml(d.pref_match)}
+      ${d.strengths?.length || d.gaps?.length ? `<div class="section"><div class="cardhead"><h3>Match notes</h3><button class="linkbtn" data-quickadd>Have a skill that's missing? Add it</button></div><div class="match-grid"><div><b>Strengths</b>${list(d.strengths)}</div><div><b>Gaps</b>${list(d.gaps)}</div></div></div>` : ""}
+      ${!d.fit_breakdown ? `<div class="section"><div class="notice">${d.jd_text || d.source_url ? `No fit review yet. <button class="btn sm primary" id="reviewJob" style="margin-left:8px">Review and score</button>` : "No posting text saved, so this job can't be reviewed. Add the posting to review it."}</div></div>` : ""}
+      <div class="section"><h3>Application timeline</h3><ul>${(d.history || []).map((h) => `<li>${esc(STATUS[h.status] || h.status)} &middot; ${formatDate(h.at)}</li>`).join("") || "<li>No changes yet</li>"}</ul></div>`],
+    ["docs", "Documents", `<div class="section"><h3>Tailored documents</h3><div class="docbtns">${docBox("resume")}${docBox("letter")}</div><p class="soon">Written from your confirmed profile and base resume. A resume takes about a minute.</p></div>`],
+    ["questions", `Questions <span class="badge b-up">${d.answers.length}</span>`, `<div class="section"><h3>Application questions</h3><div id="qlist"></div>
+      <form class="qform" id="qForm"><input id="qText" maxlength="2000" placeholder="Paste a question from the application" aria-label="Question"><input id="qLimit" type="number" min="1" placeholder="Char limit" aria-label="Character limit"></form>
+      <div class="btnrow" style="margin-top:8px"><button class="btn sm primary" id="qDraft">Add and draft answer</button><button class="btn sm" id="qAdd">Add without drafting</button></div>
+      <p class="soon">Drafts use your confirmed facts and this posting, and always fit the character limit.</p></div>`],
+    ["posting", "Posting", `<div class="section"><h3>Job posting</h3>${d.source_url ? `<p class="note"><a href="${esc(d.source_url)}" target="_blank" rel="noopener noreferrer">${esc(d.source_url)}</a></p>` : ""}${d.jd_text ? `<div class="jd">${esc(d.jd_text)}</div>` : `<div class="notice">No posting text saved for this job.</div>`}</div>`],
+    ...(job.status !== "EMPLOYER_REJECTED" ? [["coach", `${COACH_MINI}Coach`, `<div class="coach-cta">${COACH_ICON}<div><b>Interview Coach</b><p>${LIVE_STATUSES.has(job.status) ? "Prepare for this interview" : "Practice for this role"}: one question at a time, with feedback grounded in your profile.</p></div><button class="btn primary" id="openCoach">Open coach</button></div>`]] : []),
+  ];
+  const tab = panelTab.id === id && panes.some(([k]) => k === panelTab.tab) ? panelTab.tab : "overview";
+
   openDrawer(`
     ${head("", job.company, job.role_title, `<div class="detailmeta">${statusSelect(job, "drawerStatus")}<span>Applied ${formatDate(job.applied_on)}</span>${d.location ? `<span>${esc(d.location)}</span>` : ""}</div>`)}
     <div class="detailcards"><div class="dcard"><span>Fit score</span><b>${job.fit_score ?? "--"}</b></div><div class="dcard"><span>Screening odds</span><b>${job.odds_score ?? "--"}</b></div><div class="dcard"><span>Questions</span><b>${d.answers.length}</b></div></div>
-    ${rubricHtml(d.fit_breakdown)}
-    ${prefHtml(d.pref_match)}
-    ${d.strengths?.length || d.gaps?.length ? `<div class="section"><div class="cardhead"><h3>Match notes</h3><button class="linkbtn" data-quickadd>Have a skill that's missing? Add it</button></div><div class="match-grid"><div><b>Strengths</b>${list(d.strengths)}</div><div><b>Gaps</b>${list(d.gaps)}</div></div></div>` : ""}
-    ${!d.fit_breakdown ? `<div class="section"><div class="notice">${d.jd_text || d.source_url ? `No fit review yet. <button class="btn sm primary" id="reviewJob" style="margin-left:8px">Review and score</button>` : "No posting text saved, so this job can't be reviewed. Add the posting to review it."}</div></div>` : ""}
-    ${job.status !== "EMPLOYER_REJECTED" ? `<div class="coach-cta"><div><b>Interview Coach</b><p>${LIVE_STATUSES.has(job.status) ? "Prepare for this interview" : "Practice for this role"}: one question at a time, with feedback grounded in your profile.</p></div><button class="btn primary" id="openCoach">Open coach</button></div>` : ""}
-    <div class="section"><h3>Tailored documents</h3><div class="docbtns">${docBox("resume")}${docBox("letter")}</div><p class="soon">Written from your confirmed profile and base resume. A resume takes about a minute.</p></div>
-    <div class="section"><h3>Application questions</h3><div id="qlist"></div>
-      <form class="qform" id="qForm"><input id="qText" maxlength="2000" placeholder="Paste a question from the application" aria-label="Question"><input id="qLimit" type="number" min="1" placeholder="Char limit" aria-label="Character limit"></form>
-      <div class="btnrow" style="margin-top:8px"><button class="btn sm primary" id="qDraft">Add and draft answer</button><button class="btn sm" id="qAdd">Add without drafting</button></div>
-      <p class="soon">Drafts use your confirmed facts and this posting, and always fit the character limit.</p></div>
-    ${d.jd_text ? `<div class="section"><h3>Job posting</h3>${d.source_url ? `<p class="note"><a href="${esc(d.source_url)}" target="_blank" rel="noopener noreferrer">${esc(d.source_url)}</a></p>` : ""}<div class="jd">${esc(d.jd_text)}</div></div>` : ""}
-    <div class="section"><h3>Application timeline</h3><ul>${(d.history || []).map((h) => `<li>${esc(STATUS[h.status] || h.status)} &middot; ${formatDate(h.at)}</li>`).join("") || "<li>No changes yet</li>"}</ul></div>
+    <div class="paneltabs" role="tablist" aria-label="Job sections">${panes.map(([k, label]) =>
+      `<button role="tab" id="tab-${k}" aria-controls="pane-${k}" data-tab="${k}" aria-selected="${k === tab}" tabindex="${k === tab ? 0 : -1}">${label}</button>`).join("")}</div>
+    ${panes.map(([k, , body]) => `<div class="tabpane" role="tabpanel" id="pane-${k}" aria-labelledby="tab-${k}" ${k === tab ? "" : "hidden"}>${body}</div>`).join("")}
   `);
+  wireTabs(id);
   $("#drawerStatus").addEventListener("change", (e) => changeStatus(id, e.target.value));
   $("#openCoach")?.addEventListener("click", () => openCoach(job));
   $$("#drawer [data-quickadd]").forEach((b) => (b.onclick = () => openAdd("skill")));
@@ -400,7 +444,7 @@ async function openDoc(id, backJobId) {
   // The same checks the server ran, re-run as you edit.
   const evidence = evidenceNumbers(...(profile.facts || []).filter((f) => f.verified).map((f) => f.text));
   const recheck = () => {
-    const content = readDoc(doc.kind, $("#editor"));
+    const content = readDoc(doc.kind, $("#editor"), doc.content);
     if (!doc.sent) {
       const issues = checkDraft(doc.kind, content, evidence);
       $("#checks").innerHTML = issues.length
@@ -411,15 +455,10 @@ async function openDoc(id, backJobId) {
     $("#pages").innerHTML = `About ${pages} page${pages === 1 ? "" : "s"}${doc.kind === "resume" && pages > 2 ? ` <span class="error">: over the two-page limit. Tighten wording or drop the least relevant bullet.</span>` : ""}`;
   };
   recheck();
+  $("#editor").addEventListener("paste", (e) => pastePlain(e));
   let timer;
   $("#editor").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(recheck, 600); });
-  $("#dlWord").onclick = async () => {
-    const file = await attempt(() => source.exportWord(doc.id));
-    if (!file) return;
-    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(file.blob), download: file.name });
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  };
+  $("#dlWord").onclick = () => saveFile(() => source.exportWord(doc.id));
 
   $("#backJob")?.addEventListener("click", () => openJob(job.id));
   $$("#drawer [data-cmd]").forEach((b) => (b.onclick = () => { document.execCommand(b.dataset.cmd); $("#editor").focus(); }));
@@ -429,7 +468,7 @@ async function openDoc(id, backJobId) {
       if (copy) { await refreshDocs(); openDoc(copy.id, backJobId); }
       return;
     }
-    const content = readDoc(doc.kind, $("#editor"));
+    const content = readDoc(doc.kind, $("#editor"), doc.content);
     if (await attempt(() => source.saveDocument(doc.id, { content }), "Saved.")) { doc.content = content; refreshDocs(); recheck(); }
   };
   $("#dlPdf").onclick = () => {
@@ -438,10 +477,34 @@ async function openDoc(id, backJobId) {
   };
   $("#markSent")?.addEventListener("click", async () => {
     if (!confirm("Mark this as the version you sent? It will be locked for good.")) return;
-    const content = readDoc(doc.kind, $("#editor"));
+    const content = readDoc(doc.kind, $("#editor"), doc.content);
     if (!(await attempt(() => source.saveDocument(doc.id, { content })))) return;
     if (await attempt(() => source.markSent(doc.id), "Marked as sent and locked.")) { await Promise.all([refreshDocs(), refreshJobs()]); openDoc(doc.id, backJobId); }
   });
+}
+
+// Pasting into the editor: plain text only, so it stays inside the section
+// it was pasted into. Several lines pasted into a bullet list become bullets.
+function pastePlain(e) {
+  const text = (e.clipboardData || window.clipboardData)?.getData("text/plain");
+  if (text == null) return;
+  e.preventDefault();
+  const lines = text.replace(/\r/g, "").split("\n").map((l) => l.trim().replace(/^[-*\u2022]\s*/, "")).filter(Boolean);
+  const sel = window.getSelection();
+  const li = sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)?.closest("li");
+  if (li && lines.length > 1) {
+    document.execCommand("insertText", false, lines[0]);
+    let after = li;
+    for (const line of lines.slice(1)) {
+      const item = document.createElement("li");
+      item.textContent = line;
+      after.after(item);
+      after = item;
+    }
+  } else {
+    document.execCommand("insertText", false, lines.join(" "));
+  }
+  $("#editor").dispatchEvent(new Event("input"));
 }
 
 // Lays the document out at Letter size with its print margins and counts pages.
@@ -484,7 +547,7 @@ function readPrefs() {
 // Confirm button when not. Edit swaps the text for an input in place.
 function factRow(f, { showGroup = false } = {}) {
   return `<div class="item ${f.verified ? "" : "pending"}" data-fact="${f.id}">
-    <span class="ftext">${f.verified ? "" : '<span class="dot" aria-label="Unverified"></span>'}${esc(f.text)}${showGroup && f.group && !["Other", "Education", "Summary"].includes(f.group) ? ` <span class="note">${esc(f.group)}</span>` : ""}</span>
+    <span class="ftext">${f.verified ? "" : '<span class="dot" aria-label="Unverified"></span>'}${esc(f.text)}${/^https:\/\//.test(f.url || "") ? ` <a class="factlink" href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">Link</a>` : ""}${showGroup && f.group && !["Other", "Education", "Summary"].includes(f.group) ? ` <span class="note">${esc(f.group)}</span>` : ""}</span>
     <span class="acts">${f.verified ? "" : `<button class="confirm" data-confirm="${f.id}">Confirm</button>`}<button data-edit="${f.id}">Edit</button><button data-del="${f.id}">Remove</button></span></div>`;
 }
 
@@ -516,6 +579,7 @@ function renderProfile() {
     : `<p class="sub">No confirmed skills yet.</p>`;
 
   $("#education").innerHTML = facts.filter((f) => f.kind === "education" && f.verified).map((f) => factRow(f)).join("") || `<p class="sub">None yet.</p>`;
+  $("#publications").innerHTML = facts.filter((f) => f.kind === "publication" && f.verified).map((f) => factRow(f)).join("") || `<p class="sub">None yet. Add a talk, article, or project you can link to.</p>`;
 
   wireFacts($("#profile"));
 }
@@ -574,6 +638,7 @@ const ADD_KINDS = {
   skill: { label: "Skill", group: "Group", placeholder: "e.g. Articulate Rise", groupHint: "e.g. Learning technology" },
   result: { label: "Result or responsibility", group: "Employer", placeholder: "e.g. Cut review rounds from 3 to 2 across 40 courses", groupHint: "e.g. Lakeside College" },
   education: { label: "Degree or certification", group: "", placeholder: "e.g. Certificate in Product Management, Cornell University" },
+  publication: { label: "Presentation or publication", group: "", url: true, placeholder: "e.g. Designing review checklists that stick, OLC Accelerate 2025" },
 };
 let addKind = "skill";
 
@@ -586,6 +651,8 @@ function setAddKind(kind) {
   $("#addGroupField").hidden = !k.group;
   $("#addGroupLabel").textContent = k.group;
   $("#addGroup").placeholder = k.groupHint || "";
+  $("#addGroupHelp").hidden = kind !== "skill";
+  $("#addUrlField").classList.toggle("hidden", !k.url);
   $("#addGroupList").innerHTML = [...new Set((profile.facts || []).filter((f) => f.kind === kind).map((f) => f.group))].map((g) => `<option value="${esc(g)}">`).join("");
 }
 
@@ -593,16 +660,26 @@ function openAdd(kind = "skill") {
   setAddKind(kind);
   $("#addText").value = "";
   $("#addGroup").value = "";
+  $("#addUrl").value = "";
   $("#addConfirm").checked = false;
   $("#addDlg").showModal();
   $("#addText").focus();
 }
 
+// Starts a new skill group: the dialog opens with the group name first.
+function openNewGroup() {
+  openAdd("skill");
+  $("#addGroupLabel").textContent = "New group name";
+  $("#addGroup").focus();
+}
+
 async function submitAdd() {
   const text = $("#addText").value.trim();
   if (!text) { $("#addText").focus(); return; }
-  const group = $("#addGroup").value.trim() || (addKind === "education" ? "Education" : addKind === "skill" ? "Skills" : "Other");
-  const fact = { kind: addKind, group, text };
+  const group = $("#addGroup").value.trim() || ({ education: "Education", skill: "Skills", publication: "Publications" }[addKind] || "Other");
+  const url = $("#addUrl").value.trim();
+  if (url && !/^https:\/\//i.test(url)) { $("#addUrl").focus(); toast("Links must start with https://."); return; }
+  const fact = { kind: addKind, group, text, ...(url ? { url } : {}) };
   const confirmed = $("#addConfirm").checked;
   const out = confirmed
     ? await attempt(() => source.confirmFacts([fact], "app"), "Added and confirmed.")
@@ -614,6 +691,66 @@ async function submitAdd() {
 }
 
 /* ---------- Interview coach ---------- */
+
+// Two people talking, with a green speech bubble.
+const COACH_ICON = `<svg class="coach-icon" viewBox="0 0 64 48" width="56" height="42" aria-hidden="true">
+  <circle cx="14" cy="16" r="6" fill="#2C2C2C"/><path d="M3 44c0-9 5-15 11-15s11 6 11 15z" fill="#2C2C2C"/>
+  <circle cx="50" cy="16" r="6" fill="#2C2C2C"/><path d="M39 44c0-9 5-15 11-15s11 6 11 15z" fill="#2C2C2C"/>
+  <path d="M22 2h20a5 5 0 0 1 5 5v8a5 5 0 0 1-5 5h-8l-6 5v-5h-6a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5z" fill="#8BE02E"/>
+  <circle cx="26" cy="11" r="1.8" fill="#2C2C2C"/><circle cx="32" cy="11" r="1.8" fill="#2C2C2C"/><circle cx="38" cy="11" r="1.8" fill="#2C2C2C"/>
+</svg>`;
+const COACH_MINI = COACH_ICON.replace('class="coach-icon" viewBox="0 0 64 48" width="56" height="42"', 'class="coach-mini" viewBox="0 0 64 48" width="24" height="18"');
+
+// Dictation through the browser's own speech recognition (Chrome, Edge, Safari).
+const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+const DICTATION_FALLBACK = "Dictation works in Chrome and Safari. In any browser you can also use Mac dictation: click in the answer box and press the Globe (fn) key twice.";
+const DICTATION_ERRORS = {
+  "not-allowed": "Microphone access was blocked. Allow it in your browser's site settings, then try again.",
+  "service-not-allowed": "This browser's speech recognition is turned off. In Safari, turn on Dictation in System Settings > Keyboard, then try again.",
+  network: `This browser couldn't reach its speech service (common in Brave and some other browsers). ${DICTATION_FALLBACK}`,
+  "audio-capture": "No microphone was found. Check that one is connected and selected in System Settings > Sound.",
+  "no-speech": "No speech was heard. Check that the right microphone is selected in System Settings > Sound, then try again.",
+  "language-not-supported": `Speech recognition doesn't support English (US) in this browser. ${DICTATION_FALLBACK}`,
+};
+
+function wireDictation(ta, button, note) {
+  if (!Speech) { button.hidden = true; return; }
+  let rec = null;
+  let base = "";
+  const stop = () => { rec?.stop(); };
+  button.onclick = () => {
+    if (rec) { stop(); return; }
+    rec = new Speech();
+    rec.lang = "en-US";
+    rec.continuous = true;
+    rec.interimResults = true;
+    base = ta.value ? `${ta.value.replace(/\s+$/, "")} ` : "";
+    let heard = false, failed = false;
+    // Some browsers turn the microphone on but never return words (their
+    // speech service is missing or switched off), so say so after a while.
+    const quiet = setTimeout(() => { if (rec && !heard) note.textContent = `Not getting any words back yet. Check that the right microphone is selected in System Settings > Sound. ${DICTATION_FALLBACK}`; }, 8000);
+    rec.onresult = (e) => {
+      heard = true;
+      let finalText = "", interim = "";
+      for (let i = 0; i < e.results.length; i++) (e.results[i].isFinal ? (finalText += e.results[i][0].transcript) : (interim += e.results[i][0].transcript));
+      ta.value = base + finalText + interim;
+      ta.dispatchEvent(new Event("input"));
+      note.textContent = "Listening… edit the text before you submit.";
+    };
+    rec.onerror = (e) => { failed = true; note.textContent = DICTATION_ERRORS[e.error] || `Dictation stopped (${e.error}). ${DICTATION_FALLBACK}`; };
+    rec.onend = () => {
+      clearTimeout(quiet);
+      if (!heard && !failed) note.textContent = `Dictation ended without hearing any words. Check that the right microphone is selected in System Settings > Sound. ${DICTATION_FALLBACK}`;
+      rec = null; button.textContent = "Dictate"; button.setAttribute("aria-pressed", "false"); button.classList.remove("listening");
+    };
+    rec.start();
+    button.textContent = "Stop dictating";
+    button.setAttribute("aria-pressed", "true");
+    button.classList.add("listening");
+    note.textContent = "Listening… speak your answer. Edit the text before you submit.";
+  };
+}
 
 const STATE_NOTE = {
   AWAIT_ANSWER: "Answer the question below.",
@@ -638,7 +775,7 @@ async function openCoach(job, data) {
 
   if (!s) {
     openDrawer(`${head(`Interview Coach · ${job.company}`, "Practice interview", job.role_title)}${back}
-      <div class="section"><div class="notice">The coach reads this posting and your confirmed profile, then gives you prep (what the hiring team needs, the likely concern, and STAR stories from your facts) and asks one question at a time. After each answer you get feedback, a stronger version, and one follow-up. About 5 cents to start and 2 to 3 cents per answer.</div>
+      <div class="section"><div class="coach-hero">${COACH_ICON}<div class="notice">The coach reads this posting and your confirmed profile, then gives you prep (what the hiring team needs, the likely concern, and STAR stories from your facts) and asks one question at a time. After each answer you get feedback, a stronger version, and one follow-up. About 5 cents to start and 2 to 3 cents per answer.</div></div>
       <div class="savebar"><button class="btn primary" id="coachStart">Start practice interview</button></div></div>`, true);
     $("#backJob").onclick = () => openJob(job.id);
     $("#coachStart").onclick = async (e) => {
@@ -658,7 +795,8 @@ async function openCoach(job, data) {
     if (!t.answered_at) {
       return `<article class="turn current"><p class="eyebrow">${label}</p><p class="coach-question">${esc(t.question)}</p>
         <textarea class="coach-answer" id="coachAnswer" maxlength="8000" aria-label="Your answer" placeholder="Answer as you would out loud. About 60 to 90 seconds.">${esc(store.get(draftKey) || "")}</textarea>
-        <div class="btnrow" style="margin-top:8px"><button class="btn primary" id="coachSubmit">Get feedback</button><span class="note" id="coachNote"></span></div></article>`;
+        <div class="btnrow" style="margin-top:8px"><button class="btn primary" id="coachSubmit">Get feedback</button><button class="btn" id="coachMic" type="button" aria-pressed="false">Dictate</button><span class="note" id="coachNote"></span></div>
+        <p class="soon">Dictation uses your browser's speech service (Google in Chrome, Apple in Safari), not Career Studio.</p></article>`;
     }
     const c = t.critique || {};
     return `<article class="turn"><p class="eyebrow">${label}</p><p class="coach-question">${esc(t.question)}</p>
@@ -683,12 +821,14 @@ async function openCoach(job, data) {
       ${s.state === "ASK_MAIN" ? `<button class="btn primary" id="coachNext">Next question (${s.main_count + 1} of ${data.max_main})</button>` : ""}
       ${s.state === "DONE" ? `<button class="btn primary" id="coachRestart">Start a new session</button>` : `<button class="btn" id="coachEnd">End session</button>`}
       <button class="btn" id="coachCopy">Copy transcript</button>
+      <button class="btn" id="coachWord">Download Word</button>
       <button class="btn" id="coachDelete">Delete session</button>
     </div>`, true);
 
   $("#backJob").onclick = () => openJob(job.id);
   const ta = $("#coachAnswer");
   if (ta) {
+    wireDictation(ta, $("#coachMic"), $("#coachNote"));
     ta.addEventListener("input", () => store.set(draftKey, ta.value));
     $("#coachSubmit").onclick = async () => {
       const answer = ta.value.trim();
@@ -715,6 +855,7 @@ async function openCoach(job, data) {
     const out = await attempt(() => source.coachStart(job.id));
     openCoach(job, out || undefined);
   });
+  $("#coachWord").onclick = () => saveFile(() => source.exportTranscript(job.id));
   $("#coachCopy").onclick = async () => {
     try { await navigator.clipboard.writeText(transcriptText(job, data)); toast("Transcript copied."); } catch { toast("Your browser blocked copying."); }
   };
@@ -907,6 +1048,7 @@ function wire() {
     if (saved) { profile.prefs = { ...profile.prefs, ...prefs }; renderProfile(); $("#prefsStatus").textContent = "Saved."; }
   };
   $$("#profile [data-add]").forEach((b) => (b.onclick = () => openAdd(b.dataset.add)));
+  $("#profile [data-newgroup]").onclick = openNewGroup;
   $$("#addKind button").forEach((b) => (b.onclick = () => setAddKind(b.dataset.k)));
   $("#addForm").onsubmit = (e) => { e.preventDefault(); submitAdd(); };
   $("#addCancel").onclick = () => $("#addDlg").close();

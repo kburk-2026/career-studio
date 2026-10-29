@@ -196,11 +196,10 @@ async function openJob(id) {
       ${d.strengths?.length || d.gaps?.length ? `<div class="section"><div class="cardhead"><h3>Match notes</h3><button class="linkbtn" data-quickadd>Have a skill that's missing? Add it</button></div><div class="match-grid"><div><b>Strengths</b>${list(d.strengths)}</div><div><b>Gaps</b>${list(d.gaps)}</div></div></div>` : ""}
       ${!d.fit_breakdown ? `<div class="section"><div class="notice">${d.jd_text || d.source_url ? `No fit review yet. <button class="btn sm primary" id="reviewJob" style="margin-left:8px">Review and score</button>` : "No posting text saved, so this job can't be reviewed. Add the posting to review it."}</div></div>` : ""}
       <div class="section"><h3>Application timeline</h3><ul>${(d.history || []).map((h) => `<li>${esc(STATUS[h.status] || h.status)} &middot; ${formatDate(h.at)}</li>`).join("") || "<li>No changes yet</li>"}</ul></div>`],
-    ["docs", "Documents", `<div class="section"><h3>Tailored documents</h3><div class="docbtns">${docBox("resume")}${docBox("letter")}</div><p class="soon">Written from your confirmed profile and base resume. A resume takes about a minute.</p></div>`],
+    ["docs", "Documents", `<div class="section"><h3>Tailored documents</h3><div class="docbtns">${docBox("resume")}${docBox("letter")}</div><p class="soon">A resume takes about a minute.</p></div>`],
     ["questions", `Questions <span class="badge b-up">${d.answers.length}</span>`, `<div class="section"><h3>Application questions</h3><div id="qlist"></div>
       <form class="qform" id="qForm"><input id="qText" maxlength="2000" placeholder="Paste a question from the application" aria-label="Question"><input id="qLimit" type="number" min="1" placeholder="Char limit" aria-label="Character limit"></form>
-      <div class="btnrow" style="margin-top:8px"><button class="btn sm primary" id="qDraft">Add and draft answer</button><button class="btn sm" id="qAdd">Add without drafting</button></div>
-      <p class="soon">Drafts use your confirmed facts and this posting, and always fit the character limit.</p></div>`],
+      <div class="btnrow" style="margin-top:8px"><button class="btn sm primary" id="qDraft">Add and draft answer</button><button class="btn sm" id="qAdd">Add without drafting</button></div></div>`],
     ["posting", "Posting", `<div class="section"><h3>Job posting</h3>${d.source_url ? `<p class="note"><a href="${esc(d.source_url)}" target="_blank" rel="noopener noreferrer">${esc(d.source_url)}</a></p>` : ""}${d.jd_text ? `<div class="jd">${esc(d.jd_text)}</div>` : `<div class="notice">No posting text saved for this job.</div>`}</div>`],
     ...(job.status !== "EMPLOYER_REJECTED" ? [["coach", `${COACH_MINI}Coach`, `<div class="coach-cta">${COACH_ICON}<div><b>Interview Coach</b><p>${LIVE_STATUSES.has(job.status) ? "Prepare for this interview" : "Practice for this role"}: one question at a time, with feedback grounded in your profile.</p></div><button class="btn primary" id="openCoach">Open coach</button></div>`]] : []),
   ];
@@ -317,7 +316,7 @@ function renderQuestions(jobId, answers) {
 function reviewHtml(rv) {
   const flags = rv.flags?.length ? `<div class="guard w"><b>Check before relying on this:</b> ${rv.flags.map((f) => esc(f.message)).join(" ")}</div>` : "";
   return `<div class="detailcards" style="margin:16px 0 0"><div class="dcard"><span>Fit score</span><b>${rv.fit_score}</b></div><div class="dcard"><span>Screening odds</span><b>${rv.odds_score}</b></div><div class="dcard"><span>Gap</span><b>${rv.fit_score - rv.odds_score}</b></div></div>
-    ${rv.fit_score - rv.odds_score >= 10 ? `<p class="soon">A gap of 10 or more means this employer screens hard: worth applying through a referral if you can.</p>` : ""}
+    ${rv.fit_score - rv.odds_score >= 10 ? `<p class="soon">This employer screens hard: worth applying through a referral if you can.</p>` : ""}
     ${flags}
     <div class="section"><h3>Summary</h3><p>${esc(rv.summary)}</p></div>
     ${rubricHtml(rv.fit_breakdown)}
@@ -327,7 +326,7 @@ function reviewHtml(rv) {
 
 function openAddJob() {
   openDrawer(`
-    ${head("New job", "Review a posting", "Paste the job description or a link. The review uses only your confirmed profile.")}
+    ${head("New job", "Review a posting", "Paste the job description or a link.")}
     <div class="section">
       <div class="seg" id="addSeg" role="tablist"><button class="on" data-m="paste" role="tab">Paste text</button><button data-m="link" role="tab">Link</button></div>
       <div class="field wide" style="margin-top:14px" id="addPaste"><label for="j_text">Job description</label><textarea id="j_text" rows="10" maxlength="60000" placeholder="Paste the full posting"></textarea></div>
@@ -449,7 +448,7 @@ async function openDoc(id, backJobId) {
       const issues = checkDraft(doc.kind, content, evidence);
       $("#checks").innerHTML = issues.length
         ? `<div class="guard w"><b>Check before sending:</b><ul>${issues.map((i) => `<li>${esc(i.message)}</li>`).join("")}</ul></div>`
-        : `<div class="guard"><b>Checks passed.</b> Every number appears in your confirmed facts, with no dashes, filler phrases, or unheld titles.</div>`;
+        : `<div class="guard"><b>Checks passed.</b></div>`;
     }
     const pages = estimatePages(doc.kind, $("#editor"));
     $("#pages").innerHTML = `About ${pages} page${pages === 1 ? "" : "s"}${doc.kind === "resume" && pages > 2 ? ` <span class="error">: over the two-page limit. Tighten wording or drop the least relevant bullet.</span>` : ""}`;
@@ -775,7 +774,7 @@ async function openCoach(job, data) {
 
   if (!s) {
     openDrawer(`${head(`Interview Coach · ${job.company}`, "Practice interview", job.role_title)}${back}
-      <div class="section"><div class="coach-hero">${COACH_ICON}<div class="notice">The coach reads this posting and your confirmed profile, then gives you prep (what the hiring team needs, the likely concern, and STAR stories from your facts) and asks one question at a time. After each answer you get feedback, a stronger version, and one follow-up. About 5 cents to start and 2 to 3 cents per answer.</div></div>
+      <div class="section"><div class="coach-hero">${COACH_ICON}<div class="notice">Start with prep: what the hiring team needs, the likely concern, and stories to tell. Then practice one question at a time. After each answer you get feedback, a stronger version, and a follow-up question.</div></div>
       <div class="savebar"><button class="btn primary" id="coachStart">Start practice interview</button></div></div>`, true);
     $("#backJob").onclick = () => openJob(job.id);
     $("#coachStart").onclick = async (e) => {
@@ -795,8 +794,7 @@ async function openCoach(job, data) {
     if (!t.answered_at) {
       return `<article class="turn current"><p class="eyebrow">${label}</p><p class="coach-question">${esc(t.question)}</p>
         <textarea class="coach-answer" id="coachAnswer" maxlength="8000" aria-label="Your answer" placeholder="Answer as you would out loud. About 60 to 90 seconds.">${esc(store.get(draftKey) || "")}</textarea>
-        <div class="btnrow" style="margin-top:8px"><button class="btn primary" id="coachSubmit">Get feedback</button><button class="btn" id="coachMic" type="button" aria-pressed="false">Dictate</button><span class="note" id="coachNote"></span></div>
-        <p class="soon">Dictation uses your browser's speech service (Google in Chrome, Apple in Safari), not Career Studio.</p></article>`;
+        <div class="btnrow" style="margin-top:8px"><button class="btn primary" id="coachSubmit">Get feedback</button><button class="btn" id="coachMic" type="button" aria-pressed="false">Dictate</button><span class="note" id="coachNote"></span></div></article>`;
     }
     const c = t.critique || {};
     return `<article class="turn"><p class="eyebrow">${label}</p><p class="coach-question">${esc(t.question)}</p>
@@ -814,7 +812,7 @@ async function openCoach(job, data) {
     <details class="section prep" ${data.turns.length <= 1 ? "open" : ""}><summary><h3 style="display:inline">Prep</h3></summary>
       <h3>What the hiring team needs most</h3><ul>${(prep.priorities || []).map((p) => `<li><b>${esc(p.title)}:</b> ${esc(p.detail)}</li>`).join("")}</ul>
       <h3>Likely concern</h3><p>${esc(prep.concern || "")}</p>
-      <h3>Your stories</h3>${(prep.stories || []).map((x, i) => `<div class="story"><b>${i + 1}. ${esc(x.title)}</b>${x.priority ? ` <span class="note">(${esc(x.priority)})</span>` : ""}<p><b>S/T:</b> ${esc(x.situation)} <b>A:</b> ${esc(x.action)} <b>R:</b> ${esc(x.result)}</p></div>`).join("")}
+      <h3>Your stories</h3>${(prep.stories || []).map((x, i) => `<div class="story"><b>${i + 1}. ${esc(x.title)}</b><p><b>S/T:</b> ${esc(x.situation)} <b>A:</b> ${esc(x.action)} <b>R:</b> ${esc(x.result)}</p></div>`).join("")}
     </details>
     <div class="section"><h3>Interview <span class="note">${esc(STATE_NOTE[s.state] || "")}</span></h3>${data.turns.map(turnHtml).join("")}</div>
     <div class="btnrow" style="margin:6px 0 24px">

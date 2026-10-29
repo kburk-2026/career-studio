@@ -23,7 +23,7 @@ export function summarize(rows, now = new Date()) {
 export async function checkBudget(session) {
   const rows = await rest(session, `ai_usage?select=cost_usd,created_at&created_at=gte.${startOfMonth()}`);
   const { spent, callsToday } = summarize(rows);
-  if (spent >= monthlyCap()) throw new HttpError(429, `This month's AI budget ($${monthlyCap()}) is used up.`);
+  if (spent >= monthlyCap()) throw new HttpError(429, "This month's AI limit is reached.");
   if (callsToday >= dailyCalls()) throw new HttpError(429, "Today's AI limit is reached. Try again tomorrow.");
   return { spent, remaining: monthlyCap() - spent };
 }

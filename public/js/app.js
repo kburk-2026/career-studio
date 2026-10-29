@@ -906,7 +906,6 @@ function wire() {
     const saved = await attempt(() => source.savePrefs(prefs), "Preferences saved.");
     if (saved) { profile.prefs = { ...profile.prefs, ...prefs }; renderProfile(); $("#prefsStatus").textContent = "Saved."; }
   };
-  $("#quickAdd").onclick = () => openAdd("skill");
   $$("#profile [data-add]").forEach((b) => (b.onclick = () => openAdd(b.dataset.add)));
   $$("#addKind button").forEach((b) => (b.onclick = () => setAddKind(b.dataset.k)));
   $("#addForm").onsubmit = (e) => { e.preventDefault(); submitAdd(); };

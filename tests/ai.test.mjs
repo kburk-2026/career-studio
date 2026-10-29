@@ -28,10 +28,10 @@ test("dashes, filler phrases, and title claims are caught", () => {
 
 test("preference match flags salary, arrangement, and industry", () => {
   const prefs = { salary_min: 95000, arrangement: "Remote", industries_preferred: "Higher education, EdTech", industries_avoid: "Gambling", level: "Director" };
-  const low = preferenceMatch(prefs, { salary_min: 90000, salary_max: 110000, arrangement: "onsite", industry: "Gambling", level: "director" });
+  const low = preferenceMatch(prefs, { salary_min: 70000, salary_max: 85000, arrangement: "onsite", industry: "Gambling", level: "director" });
   assert.deepEqual(low.map((m) => m.status), ["no", "no", "no", "ok"]);
   assert.match(low[1].text, /below your \$95k minimum/);
-  const good = preferenceMatch(prefs, { salary_min: 140000, salary_max: 170000, arrangement: "remote", industry: "EdTech", level: "senior" });
+  const good = preferenceMatch(prefs, { salary_min: 100000, salary_max: 130000, arrangement: "remote", industry: "EdTech", level: "senior" });
   assert.deepEqual(good.map((m) => m.status), ["ok", "ok", "ok", "warn"]);
   const unknown = preferenceMatch(prefs, { arrangement: "unknown" });
   assert.deepEqual(unknown.map((m) => m.status), ["warn", "warn"]);

@@ -434,14 +434,11 @@ tbody tr:hover td{background:#FAFAF6}
 .editrow input{flex:1;min-width:0;border:0;border-bottom:2px solid var(--green);padding:6px 4px;font:inherit}
 
 /* Quick add */
-.quickadd{background:var(--lime);color:var(--ink);border:0;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:10px 6px;cursor:pointer;writing-mode:vertical-rl;transform:rotate(180deg);margin-top:18px}
-.quickadd:hover{background:#cbff66}
 .adddlg{border:0;padding:24px 26px;width:min(520px,calc(100% - 32px));box-shadow:0 20px 60px #2c2c2c55;border-top:6px solid var(--lime)}
 .adddlg::backdrop{background:#2c2c2c88}
 .adddlg h3{font-family:var(--serif);font-weight:400;font-size:28px;margin:0 0 4px}
 .checkline{display:flex;gap:8px;align-items:center;margin-top:14px;font-size:14px}
 @media(max-width:760px){
-  .quickadd{writing-mode:horizontal-tb;transform:none;margin:0;padding:8px;white-space:nowrap}
   .grid2{grid-template-columns:1fr}.grid2 .label{border-bottom:0;padding-bottom:0}
 }
 

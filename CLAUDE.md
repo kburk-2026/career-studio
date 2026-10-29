@@ -7,4 +7,5 @@
 - Rules the code enforces stay in code (state machine, numeric guard, RLS), not just in prompts.
 - Plain HTML/CSS/JS with no build step. Keep the UI talking to `public/js/data.js` only.
 - Don't push, deploy, make the repo public, or upgrade a paid plan without the owner's explicit go-ahead.
-- Plan and phase status: `docs/PLAN.md` and the README table.
+- Plan: `docs/PLAN.md`. Case study and screenshots: `docs/CASE_STUDY.md`, `docs/screenshots/` (fictional demo data only).
+- Release with `set -o pipefail` so a failed test or privacy check stops the push. Never use real salary, employers, or contact details as test data.

@@ -64,7 +64,9 @@
         <h3>Job preferences</h3><p class="sub">Used for the preference match shown next to fit. Never shown to employers.</p>
         <div class="formgrid">
           <div class="field"><label for="p_display_name">Your name</label><input id="p_display_name" data-account="name" maxlength="120" placeholder="Shown as your initials in the menu"></div>
-          <div class="field"></div>
+          <div class="field"><label for="p_linkedin_url">LinkedIn</label><input id="p_linkedin_url" name="linkedin_url" type="url" maxlength="500" placeholder="https://www.linkedin.com/in/your-name"><div class="help">Added as a link on every resume and cover letter.</div></div>
+          <div class="field"><label for="p_portfolio_url">Portfolio</label><input id="p_portfolio_url" name="portfolio_url" type="url" maxlength="500" placeholder="https://"></div>
+          <div class="field"><label for="p_website_url">Website</label><input id="p_website_url" name="website_url" type="url" maxlength="500" placeholder="https://"></div>
           <div class="field"><label for="p_target_titles">Target titles</label><input id="p_target_titles" name="target_titles" maxlength="1000" placeholder="e.g. Senior Product Manager; Director, Learning Technology"></div>
           <div class="field"><label for="p_level">Level</label><select id="p_level" name="level"><option value="">Not set</option><option>Individual contributor</option><option>Manager</option><option>Senior / Lead</option><option>Director</option><option>Executive</option></select></div>
           <div class="field"><label for="p_salary_min">Desired salary, minimum</label><input id="p_salary_min" name="salary_min" inputmode="numeric" placeholder="e.g. 110000"><div class="help">Used only to flag low-paying postings.</div></div>
@@ -89,13 +91,18 @@
         <div class="grid2" id="resultsGrid"></div>
       </div>
       <div class="card">
-        <div class="cardhead"><h3>Skills</h3><button class="btn sm" data-add="skill">Add a skill</button></div>
+        <div class="cardhead"><h3>Skills</h3><span class="btnrow"><button class="btn sm" data-newgroup>New group</button><button class="btn sm" data-add="skill">Add a skill</button></span></div>
         <p class="sub">Select a skill to edit or remove it.</p>
         <div class="skillcols" id="skillCols"></div>
       </div>
       <div class="card">
         <div class="cardhead"><h3>Education and certifications</h3><button class="btn sm" data-add="education">Add</button></div>
         <div id="education"></div>
+      </div>
+      <div class="card">
+        <div class="cardhead"><h3>Presentations and publications</h3><button class="btn sm" data-add="publication">Add</button></div>
+        <p class="sub">Talks, articles, and other work you can link to. Relevant ones appear on tailored resumes, with their links.</p>
+        <div id="publications"></div>
       </div>
     </section>
 
@@ -116,9 +123,10 @@
   <form method="dialog" id="addForm">
     <h3 id="addDlgTitle">Add to your profile</h3>
     <p class="sub">It joins your review queue as unverified. Confirm it there, or tick the box to confirm now.</p>
-    <div class="seg" id="addKind" role="radiogroup" aria-label="What are you adding?"><button type="button" data-k="skill" class="on" role="radio" aria-checked="true">Skill</button><button type="button" data-k="result" role="radio" aria-checked="false">Result</button><button type="button" data-k="education" role="radio" aria-checked="false">Education</button></div>
+    <div class="seg" id="addKind" role="radiogroup" aria-label="What are you adding?"><button type="button" data-k="skill" class="on" role="radio" aria-checked="true">Skill</button><button type="button" data-k="result" role="radio" aria-checked="false">Result</button><button type="button" data-k="education" role="radio" aria-checked="false">Education</button><button type="button" data-k="publication" role="radio" aria-checked="false">Publication</button></div>
     <div class="field wide" style="margin-top:14px"><label for="addText" id="addTextLabel">Skill</label><input id="addText" required maxlength="1000" placeholder="e.g. Articulate Rise"></div>
-    <div class="field wide" style="margin-top:12px" id="addGroupField"><label for="addGroup" id="addGroupLabel">Group</label><input id="addGroup" list="addGroupList" maxlength="120"><datalist id="addGroupList"></datalist></div>
+    <div class="field wide" style="margin-top:12px" id="addGroupField"><label for="addGroup" id="addGroupLabel">Group</label><input id="addGroup" list="addGroupList" maxlength="120"><datalist id="addGroupList"></datalist><div class="help" id="addGroupHelp">Pick a group, or type a new name to start a new group.</div></div>
+    <div class="field wide hidden" style="margin-top:12px" id="addUrlField"><label for="addUrl">Link</label><input id="addUrl" type="url" maxlength="500" placeholder="https://"></div>
     <label class="checkline"><input type="checkbox" id="addConfirm"> This is accurate. Confirm it now.</label>
     <div class="savebar"><button class="btn primary" type="submit" value="add">Add</button><button class="btn" type="button" id="addCancel">Cancel</button></div>
   </form>

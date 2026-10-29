@@ -43,7 +43,7 @@ export const POST = handle(async (request) => {
 
   const [[job], facts] = await Promise.all([
     rest(session, `jobs?id=eq.${jobId}&select=company,role_title,jd_text,application_answers(count)`),
-    rest(session, "profile_facts?select=kind,group_title,text,verified&verified=is.true&order=kind,group_title,position"),
+    rest(session, "profile_facts?select=kind,group_title,text,url,verified&verified=is.true&order=kind,group_title,position"),
   ]);
   if (!job) throw new HttpError(404, "Job not found.");
   if (!facts.length) throw new HttpError(400, "Your profile has no confirmed facts yet.");

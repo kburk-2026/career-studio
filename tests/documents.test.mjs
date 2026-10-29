@@ -71,3 +71,31 @@ test("generation and export need the owner and validate input", async () => {
   assert.equal((await exportGET(req("export?id=1", "bad", "GET"))).status, 401);
   assert.equal((await exportGET(req("export?id=1", "good", "GET"))).status, 404);
 });
+
+import { dedupeSkills, linksFromPrefs } from "../public/js/doc.js";
+import { cleanUrl, cleanPrefs } from "../api/profile.js";
+import { linkedRuns } from "../api/_lib/docx.js";
+
+test("each skill appears once across all skill lines", () => {
+  const out = dedupeSkills([
+    { label: "Tools", items: "Canvas, Moodle, Power BI" },
+    { label: "Data", items: "power bi, Tableau, Canvas" },
+    { label: "Empty", items: "Moodle" },
+  ]);
+  assert.deepEqual(out, [{ label: "Tools", items: "Canvas, Moodle, Power BI" }, { label: "Data", items: "Tableau" }]);
+});
+
+test("document links come only from the profile and must be https", () => {
+  assert.deepEqual(linksFromPrefs({ linkedin_url: "https://www.linkedin.com/in/x", portfolio_url: "http://insecure.example", website_url: "" }),
+    [{ label: "LinkedIn", url: "https://www.linkedin.com/in/x" }]);
+  assert.throws(() => cleanUrl("javascript:alert(1)", "Link"), /https/);
+  assert.equal(cleanUrl("https://example.com/talk", "Link"), "https://example.com/talk");
+  assert.throws(() => cleanPrefs({ portfolio_url: "ftp://example.com" }));
+});
+
+test("web addresses in text become working links in Word", async () => {
+  const runs = linkedRuns("See https://example.com/case and more.");
+  assert.equal(runs.length, 3);
+  const buf = await toBuffer(resumeDocx({ ...resume, links: [{ label: "LinkedIn", url: "https://www.linkedin.com/in/example" }], publications: [{ text: "Talk", url: "https://example.com/talk" }] }));
+  assert.ok(buf.length > 3000);
+});

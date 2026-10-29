@@ -443,6 +443,19 @@ tbody tr:hover td{background:#FAFAF6}
 }
 
 /* Interview coach */
+.coach-cta{align-items:center}
+.coach-cta .coach-icon{flex:none;background:#fff;border-radius:50%;padding:6px;width:60px;height:60px}
+.coach-hero{display:flex;gap:16px;align-items:flex-start}
+.coach-hero .coach-icon{flex:none;width:64px;height:48px}
+#coachMic.listening{background:var(--orange-text);color:#fff;box-shadow:none}
+
+/* Profile additions: skill group headers, links */
+.skillgroup b{font-size:12px!important;font-weight:700!important;color:var(--ink)!important;letter-spacing:.08em;padding-bottom:4px;margin-bottom:8px!important;border-bottom:2px solid var(--green);display:inline-block!important}
+.skillgroup{margin-bottom:22px}
+.factlink{font-family:var(--mono);font-size:11px;color:var(--green);margin-left:6px}
+.doc a{color:#1F4E79;text-decoration:underline}
+.doc .sep{color:#000}
+
 .turn{border-top:1px solid var(--faint);padding:14px 0}
 .turn.current{background:var(--deep);padding:14px;border-top:3px solid var(--ink)}
 .coach-question{font-weight:700;font-size:16px;margin:4px 0 10px}

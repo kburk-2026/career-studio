@@ -28,7 +28,7 @@ async function loadJob(session, jobId) {
   if (!job) throw new HttpError(404, "Job not found.");
   return job;
 }
-const loadFacts = (session) => rest(session, "profile_facts?select=kind,group_title,text,verified&verified=is.true&order=kind,group_title,position");
+const loadFacts = (session) => rest(session, "profile_facts?select=kind,group_title,text,url,verified&verified=is.true&order=kind,group_title,position");
 
 async function loadSession(session, request) {
   const id = uuid(new URL(request.url).searchParams.get("session"));

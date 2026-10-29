@@ -211,6 +211,15 @@
       "text": "BA, English, Riverbend College",
       "verified": true,
       "source": "import"
+    },
+    {
+      "id": 20,
+      "kind": "publication",
+      "group": "Publications",
+      "text": "Review checklists that designers actually use, regional online learning conference",
+      "url": "https://example.com/talk",
+      "verified": true,
+      "source": "import"
     }
   ],
   "prefs": {
@@ -227,6 +236,9 @@
     "travel": "Up to 10%",
     "needs_sponsorship": false,
     "earliest_start": "2 weeks notice",
-    "must_haves": null
+    "must_haves": null,
+    "linkedin_url": "https://www.linkedin.com/in/example",
+    "portfolio_url": "https://example.com/portfolio",
+    "website_url": null
   }
 }

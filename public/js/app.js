@@ -139,6 +139,32 @@ function prefHtml(match) {
 
 const list = (items) => `<ul>${(items || []).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
 
+// The job panel's open tab, kept when the same job's panel re-renders
+// (a status change, a new answer, coming back from the coach).
+let panelTab = { id: null, tab: "overview" };
+
+function wireTabs(jobId) {
+  const tabs = $$("#drawer [role=tab]");
+  const show = (t, focus = false) => {
+    tabs.forEach((b) => {
+      const on = b === t;
+      b.setAttribute("aria-selected", on);
+      b.tabIndex = on ? 0 : -1;
+      $(`#pane-${b.dataset.tab}`).hidden = !on;
+    });
+    panelTab = { id: jobId, tab: t.dataset.tab };
+    if (focus) t.focus();
+  };
+  tabs.forEach((b, i) => {
+    b.onclick = () => show(b);
+    b.onkeydown = (e) => {
+      const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+      if (step) { e.preventDefault(); show(tabs[(i + step + tabs.length) % tabs.length], true); }
+    };
+  });
+  panelTab = { id: jobId, tab: tabs.find((b) => b.getAttribute("aria-selected") === "true")?.dataset.tab || "overview" };
+}
+
 async function openJob(id) {
   const job = jobs.find((j) => j.id === id);
   const d = await attempt(() => source.getApplication(id));
@@ -154,22 +180,32 @@ async function openJob(id) {
       <button class="btn sm ${doc ? "" : "primary"}" data-gen="${kind}">${doc ? "New version" : "Generate"}</button></div></div>`;
   };
 
+  // Tabs, in workflow order; the coach comes last. Every pane is rendered up
+  // front (hidden when inactive) so the wiring below finds its elements.
+  const panes = [
+    ["overview", "Overview", `${rubricHtml(d.fit_breakdown)}
+      ${prefHtml(d.pref_match)}
+      ${d.strengths?.length || d.gaps?.length ? `<div class="section"><div class="cardhead"><h3>Match notes</h3><button class="linkbtn" data-quickadd>Have a skill that's missing? Add it</button></div><div class="match-grid"><div><b>Strengths</b>${list(d.strengths)}</div><div><b>Gaps</b>${list(d.gaps)}</div></div></div>` : ""}
+      ${!d.fit_breakdown ? `<div class="section"><div class="notice">${d.jd_text || d.source_url ? `No fit review yet. <button class="btn sm primary" id="reviewJob" style="margin-left:8px">Review and score</button>` : "No posting text saved, so this job can't be reviewed. Add the posting to review it."}</div></div>` : ""}
+      <div class="section"><h3>Application timeline</h3><ul>${(d.history || []).map((h) => `<li>${esc(STATUS[h.status] || h.status)} &middot; ${formatDate(h.at)}</li>`).join("") || "<li>No changes yet</li>"}</ul></div>`],
+    ["docs", "Documents", `<div class="section"><h3>Tailored documents</h3><div class="docbtns">${docBox("resume")}${docBox("letter")}</div><p class="soon">Written from your confirmed profile and base resume. A resume takes about a minute.</p></div>`],
+    ["questions", `Questions <span class="badge b-up">${d.answers.length}</span>`, `<div class="section"><h3>Application questions</h3><div id="qlist"></div>
+      <form class="qform" id="qForm"><input id="qText" maxlength="2000" placeholder="Paste a question from the application" aria-label="Question"><input id="qLimit" type="number" min="1" placeholder="Char limit" aria-label="Character limit"></form>
+      <div class="btnrow" style="margin-top:8px"><button class="btn sm primary" id="qDraft">Add and draft answer</button><button class="btn sm" id="qAdd">Add without drafting</button></div>
+      <p class="soon">Drafts use your confirmed facts and this posting, and always fit the character limit.</p></div>`],
+    ["posting", "Posting", `<div class="section"><h3>Job posting</h3>${d.source_url ? `<p class="note"><a href="${esc(d.source_url)}" target="_blank" rel="noopener noreferrer">${esc(d.source_url)}</a></p>` : ""}${d.jd_text ? `<div class="jd">${esc(d.jd_text)}</div>` : `<div class="notice">No posting text saved for this job.</div>`}</div>`],
+    ...(job.status !== "EMPLOYER_REJECTED" ? [["coach", `${COACH_MINI}Coach`, `<div class="coach-cta">${COACH_ICON}<div><b>Interview Coach</b><p>${LIVE_STATUSES.has(job.status) ? "Prepare for this interview" : "Practice for this role"}: one question at a time, with feedback grounded in your profile.</p></div><button class="btn primary" id="openCoach">Open coach</button></div>`]] : []),
+  ];
+  const tab = panelTab.id === id && panes.some(([k]) => k === panelTab.tab) ? panelTab.tab : "overview";
+
   openDrawer(`
     ${head("", job.company, job.role_title, `<div class="detailmeta">${statusSelect(job, "drawerStatus")}<span>Applied ${formatDate(job.applied_on)}</span>${d.location ? `<span>${esc(d.location)}</span>` : ""}</div>`)}
     <div class="detailcards"><div class="dcard"><span>Fit score</span><b>${job.fit_score ?? "--"}</b></div><div class="dcard"><span>Screening odds</span><b>${job.odds_score ?? "--"}</b></div><div class="dcard"><span>Questions</span><b>${d.answers.length}</b></div></div>
-    ${rubricHtml(d.fit_breakdown)}
-    ${prefHtml(d.pref_match)}
-    ${d.strengths?.length || d.gaps?.length ? `<div class="section"><div class="cardhead"><h3>Match notes</h3><button class="linkbtn" data-quickadd>Have a skill that's missing? Add it</button></div><div class="match-grid"><div><b>Strengths</b>${list(d.strengths)}</div><div><b>Gaps</b>${list(d.gaps)}</div></div></div>` : ""}
-    ${!d.fit_breakdown ? `<div class="section"><div class="notice">${d.jd_text || d.source_url ? `No fit review yet. <button class="btn sm primary" id="reviewJob" style="margin-left:8px">Review and score</button>` : "No posting text saved, so this job can't be reviewed. Add the posting to review it."}</div></div>` : ""}
-    <div class="section"><h3>Tailored documents</h3><div class="docbtns">${docBox("resume")}${docBox("letter")}</div><p class="soon">Written from your confirmed profile and base resume. A resume takes about a minute.</p></div>
-    <div class="section"><h3>Application questions</h3><div id="qlist"></div>
-      <form class="qform" id="qForm"><input id="qText" maxlength="2000" placeholder="Paste a question from the application" aria-label="Question"><input id="qLimit" type="number" min="1" placeholder="Char limit" aria-label="Character limit"></form>
-      <div class="btnrow" style="margin-top:8px"><button class="btn sm primary" id="qDraft">Add and draft answer</button><button class="btn sm" id="qAdd">Add without drafting</button></div>
-      <p class="soon">Drafts use your confirmed facts and this posting, and always fit the character limit.</p></div>
-    ${d.jd_text ? `<div class="section"><h3>Job posting</h3>${d.source_url ? `<p class="note"><a href="${esc(d.source_url)}" target="_blank" rel="noopener noreferrer">${esc(d.source_url)}</a></p>` : ""}<div class="jd">${esc(d.jd_text)}</div></div>` : ""}
-    <div class="section"><h3>Application timeline</h3><ul>${(d.history || []).map((h) => `<li>${esc(STATUS[h.status] || h.status)} &middot; ${formatDate(h.at)}</li>`).join("") || "<li>No changes yet</li>"}</ul></div>
-    ${job.status !== "EMPLOYER_REJECTED" ? `<div class="coach-cta">${COACH_ICON}<div><b>Interview Coach</b><p>${LIVE_STATUSES.has(job.status) ? "Prepare for this interview" : "Practice for this role"}: one question at a time, with feedback grounded in your profile.</p></div><button class="btn primary" id="openCoach">Open coach</button></div>` : ""}
+    <div class="paneltabs" role="tablist" aria-label="Job sections">${panes.map(([k, label]) =>
+      `<button role="tab" id="tab-${k}" aria-controls="pane-${k}" data-tab="${k}" aria-selected="${k === tab}" tabindex="${k === tab ? 0 : -1}">${label}</button>`).join("")}</div>
+    ${panes.map(([k, , body]) => `<div class="tabpane" role="tabpanel" id="pane-${k}" aria-labelledby="tab-${k}" ${k === tab ? "" : "hidden"}>${body}</div>`).join("")}
   `);
+  wireTabs(id);
   $("#drawerStatus").addEventListener("change", (e) => changeStatus(id, e.target.value));
   $("#openCoach")?.addEventListener("click", () => openCoach(job));
   $$("#drawer [data-quickadd]").forEach((b) => (b.onclick = () => openAdd("skill")));
@@ -661,6 +697,7 @@ const COACH_ICON = `<svg class="coach-icon" viewBox="0 0 64 48" width="56" heigh
   <path d="M22 2h20a5 5 0 0 1 5 5v8a5 5 0 0 1-5 5h-8l-6 5v-5h-6a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5z" fill="#8BE02E"/>
   <circle cx="26" cy="11" r="1.8" fill="#2C2C2C"/><circle cx="32" cy="11" r="1.8" fill="#2C2C2C"/><circle cx="38" cy="11" r="1.8" fill="#2C2C2C"/>
 </svg>`;
+const COACH_MINI = COACH_ICON.replace('class="coach-icon" viewBox="0 0 64 48" width="56" height="42"', 'class="coach-mini" viewBox="0 0 64 48" width="24" height="18"');
 
 // Dictation through the browser's own speech recognition (Chrome, Edge, Safari).
 const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;

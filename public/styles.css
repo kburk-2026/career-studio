@@ -396,6 +396,55 @@ tbody tr:hover td{background:#FAFAF6}
   .brandmark{width:36px!important;height:36px!important;padding:3px}
 }
 
+/* Panel width and expand */
+.drawer{width:min(760px,100%)!important;transition:width .2s ease}
+.drawer.wide{width:min(940px,100%)!important}
+.drawer.full{width:100%!important;border-left-width:6px}
+.drawer.full > :not(.drawer-head):not(.detailcards){max-width:1100px;margin-left:auto!important;margin-right:auto!important;padding-left:28px;padding-right:28px}
+.headbtns{display:flex;gap:6px;align-self:flex-start}
+.expand{background:none;border:0;color:inherit;cursor:pointer;width:34px;height:34px;display:grid;place-items:center;opacity:.85}
+.expand:hover,.expand:focus-visible{opacity:1;outline:2px solid var(--lime);outline-offset:0}
+@media (prefers-reduced-motion:reduce){.drawer{transition:none}}
+@media(max-width:760px){.expand{display:none}}
+
+/* Profile: review queue and quiet grid */
+.cardhead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.queue{background:#FFF8EC;border:1px solid #f0d9b5;padding:16px 20px;margin-bottom:4px}
+.queue h3{margin:0 0 4px;font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+.item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:start;padding:9px 0;border-bottom:1px solid var(--faint);font-size:14px;line-height:1.5}
+.item:last-child{border-bottom:0}
+.item .note{margin-left:6px}
+.acts{display:flex;gap:12px;white-space:nowrap}
+.acts button,.skillacts button{background:none;border:0;padding:0;font:inherit;font-family:var(--mono);font-size:11px;color:var(--dim);cursor:pointer;text-decoration:underline}
+.acts button:hover,.skillacts button:hover{color:var(--ink)}
+.acts .confirm{color:var(--green);font-weight:700}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--orange-text);margin-right:8px;vertical-align:1px}
+.grid2{display:grid;grid-template-columns:220px minmax(0,1fr);gap:0 32px;border-top:1px solid var(--ink)}
+.grid2 .label{padding:12px 0;font-weight:700;font-size:14px;border-bottom:1px solid var(--faint)}
+.grid2 .label small{display:block;font-family:var(--mono);font-size:11px;color:var(--dim);font-weight:400;margin-top:2px}
+.grid2 .list{border-bottom:1px solid var(--faint);padding:2px 0}
+.skillcols{columns:3 220px;column-gap:28px}
+.skillgroup{break-inside:avoid;margin-bottom:16px}
+.skillgroup b{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:400;margin-bottom:4px}
+.skill{display:block;width:100%;text-align:left;background:none;border:0;padding:3px 0;font:inherit;font-size:14px;line-height:1.5;color:var(--ink);cursor:pointer}
+.skill:hover,.skill[aria-expanded="true"]{text-decoration:underline}
+.skillacts{display:flex;gap:12px;padding:0 0 6px}
+.skillacts[hidden]{display:none}
+.editrow{display:flex;gap:8px;align-items:center;padding:6px 0}
+.editrow input{flex:1;min-width:0;border:0;border-bottom:2px solid var(--green);padding:6px 4px;font:inherit}
+
+/* Quick add */
+.quickadd{background:var(--lime);color:var(--ink);border:0;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:10px 6px;cursor:pointer;writing-mode:vertical-rl;transform:rotate(180deg);margin-top:18px}
+.quickadd:hover{background:#cbff66}
+.adddlg{border:0;padding:24px 26px;width:min(520px,calc(100% - 32px));box-shadow:0 20px 60px #2c2c2c55;border-top:6px solid var(--lime)}
+.adddlg::backdrop{background:#2c2c2c88}
+.adddlg h3{font-family:var(--serif);font-weight:400;font-size:28px;margin:0 0 4px}
+.checkline{display:flex;gap:8px;align-items:center;margin-top:14px;font-size:14px}
+@media(max-width:760px){
+  .quickadd{writing-mode:horizontal-tb;transform:none;margin:0;padding:8px;white-space:nowrap}
+  .grid2{grid-template-columns:1fr}.grid2 .label{border-bottom:0;padding-bottom:0}
+}
+
 /* Interview coach */
 .turn{border-top:1px solid var(--faint);padding:14px 0}
 .turn.current{background:var(--deep);padding:14px;border-top:3px solid var(--ink)}

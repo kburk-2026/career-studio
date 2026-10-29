@@ -24,6 +24,7 @@
       <button data-view="resumes">Resumes</button>
       <button class="active" data-view="applications">Applications</button>
     </nav>
+    <button class="quickadd" id="quickAdd" title="Add a skill, result, or education">+ Add skill</button>
     <div class="account">
       <button class="avatar" id="avatar" title="Your profile" aria-label="Open your profile">C</button>
       <button class="signout hidden" id="signOutBtn">Sign out</button>
@@ -82,20 +83,20 @@
         </div>
         <div class="savebar"><button class="btn primary" type="submit">Save preferences</button><span class="note" id="prefsStatus"></span></div>
       </form>
+      <div id="reviewQueue"></div>
       <div class="card">
-        <h3>Skills</h3><p class="sub">Add a skill any time. New skills stay <span class="unverified">unverified</span> until you confirm them, and only confirmed skills are used in documents.</p>
-        <div id="skillGroups"></div>
-        <form class="addrow" id="skillForm"><input id="newSkill" maxlength="1000" placeholder="Add a skill, e.g. Articulate Rise" aria-label="New skill"><input id="newSkillGroup" list="skillGroupList" maxlength="120" placeholder="Group" aria-label="Skill group"><datalist id="skillGroupList"></datalist><button class="btn primary" type="submit">Add</button></form>
+        <div class="cardhead"><h3>Results and evidence</h3><button class="btn sm" data-add="result">Add a result</button></div>
+        <p class="sub">Measured accomplishments and responsibilities, by employer. These are the only numbers the app may use in resumes, letters, and answers.</p>
+        <div class="grid2" id="resultsGrid"></div>
       </div>
       <div class="card">
-        <h3>Results and evidence</h3><p class="sub">Measured accomplishments. These are the only numbers the app may use in resumes, letters, and answers.</p>
-        <ul class="tips" id="results"></ul>
-        <form class="addrow" id="resultForm"><input id="newResult" maxlength="1000" placeholder="e.g. Cut review rounds from 3 to 2 across 40 courses" aria-label="New result"><input id="newResultGroup" maxlength="120" placeholder="Employer" aria-label="Employer"><button class="btn primary" type="submit">Add</button></form>
+        <div class="cardhead"><h3>Skills</h3><button class="btn sm" data-add="skill">Add a skill</button></div>
+        <p class="sub">Select a skill to edit or remove it.</p>
+        <div class="skillcols" id="skillCols"></div>
       </div>
       <div class="card">
-        <h3>Education and certifications</h3>
-        <ul class="tips" id="education"></ul>
-        <form class="addrow" id="eduForm"><input id="newEdu" maxlength="1000" placeholder="e.g. Certificate in Product Management, Cornell University" aria-label="New education"><span></span><button class="btn primary" type="submit">Add</button></form>
+        <div class="cardhead"><h3>Education and certifications</h3><button class="btn sm" data-add="education">Add</button></div>
+        <div id="education"></div>
       </div>
     </section>
 
@@ -112,6 +113,17 @@
   </main>
 </div>
 <div class="drawer-bg" id="drawerBg"><aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Details"></aside></div>
+<dialog class="adddlg" id="addDlg" aria-labelledby="addDlgTitle">
+  <form method="dialog" id="addForm">
+    <h3 id="addDlgTitle">Add to your profile</h3>
+    <p class="sub">It joins your review queue as unverified. Confirm it there, or tick the box to confirm now.</p>
+    <div class="seg" id="addKind" role="radiogroup" aria-label="What are you adding?"><button type="button" data-k="skill" class="on" role="radio" aria-checked="true">Skill</button><button type="button" data-k="result" role="radio" aria-checked="false">Result</button><button type="button" data-k="education" role="radio" aria-checked="false">Education</button></div>
+    <div class="field wide" style="margin-top:14px"><label for="addText" id="addTextLabel">Skill</label><input id="addText" required maxlength="1000" placeholder="e.g. Articulate Rise"></div>
+    <div class="field wide" style="margin-top:12px" id="addGroupField"><label for="addGroup" id="addGroupLabel">Group</label><input id="addGroup" list="addGroupList" maxlength="120"><datalist id="addGroupList"></datalist></div>
+    <label class="checkline"><input type="checkbox" id="addConfirm"> This is accurate. Confirm it now.</label>
+    <div class="savebar"><button class="btn primary" type="submit" value="add">Add</button><button class="btn" type="button" id="addCancel">Cancel</button></div>
+  </form>
+</dialog>
 <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
 <div id="printArea" aria-hidden="true"></div>
 <script type="module" src="js/app.js"></script>

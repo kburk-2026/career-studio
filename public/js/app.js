@@ -96,6 +96,8 @@ function openDrawer(html, wide = false) {
   d.classList.toggle("wide", wide);
   d.innerHTML = html;
   $$(".close", d).forEach((b) => (b.onclick = closeDrawer));
+  $$(".expand", d).forEach((b) => (b.onclick = () => setFull(!d.classList.contains("full"))));
+  setFull(store.get("panel_full") === "1");
   if (!$("#drawerBg").classList.contains("open")) lastFocus = document.activeElement;
   $("#drawerBg").classList.add("open");
   d.scrollTop = 0;
@@ -107,8 +109,17 @@ function closeDrawer() {
   lastFocus?.focus?.();
 }
 
+const EXPAND_ICON = `<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M9.5 2H14v4.5M14 2l-5 5M6.5 14H2V9.5M2 14l5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square"/></svg>`;
+const COLLAPSE_ICON = `<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M14 6.5H9.5V2M9.5 6.5L15 1M2 9.5h4.5V14M6.5 9.5L1 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square"/></svg>`;
 const head = (eyebrow, title, sub, extra = "") =>
-  `<div class="drawer-head"><div>${eyebrow ? `<div class="eyebrow">${esc(eyebrow)}</div>` : ""}<h2>${esc(title)}</h2>${sub ? `<p class="role">${esc(sub)}</p>` : ""}${extra}</div><button class="close" aria-label="Close">&times;</button></div>`;
+  `<div class="drawer-head"><div>${eyebrow ? `<div class="eyebrow">${esc(eyebrow)}</div>` : ""}<h2>${esc(title)}</h2>${sub ? `<p class="role">${esc(sub)}</p>` : ""}${extra}</div><div class="headbtns"><button class="expand" aria-label="Expand panel" title="Expand">${EXPAND_ICON}</button><button class="close" aria-label="Close">&times;</button></div></div>`;
+
+// The panel's full-screen choice is remembered in this browser.
+function setFull(on) {
+  $("#drawer").classList.toggle("full", on);
+  store.set("panel_full", on ? "1" : "");
+  $$("#drawer .expand").forEach((b) => { b.innerHTML = on ? COLLAPSE_ICON : EXPAND_ICON; b.setAttribute("aria-label", on ? "Shrink panel" : "Expand panel"); b.title = on ? "Shrink" : "Expand"; });
+}
 
 function rubricHtml(b) {
   if (!b) return "";
@@ -148,7 +159,7 @@ async function openJob(id) {
     <div class="detailcards"><div class="dcard"><span>Fit score</span><b>${job.fit_score ?? "--"}</b></div><div class="dcard"><span>Screening odds</span><b>${job.odds_score ?? "--"}</b></div><div class="dcard"><span>Questions</span><b>${d.answers.length}</b></div></div>
     ${rubricHtml(d.fit_breakdown)}
     ${prefHtml(d.pref_match)}
-    ${d.strengths?.length || d.gaps?.length ? `<div class="section"><h3>Match notes</h3><div class="match-grid"><div><b>Strengths</b>${list(d.strengths)}</div><div><b>Gaps</b>${list(d.gaps)}</div></div></div>` : ""}
+    ${d.strengths?.length || d.gaps?.length ? `<div class="section"><div class="cardhead"><h3>Match notes</h3><button class="linkbtn" data-quickadd>Have a skill that's missing? Add it</button></div><div class="match-grid"><div><b>Strengths</b>${list(d.strengths)}</div><div><b>Gaps</b>${list(d.gaps)}</div></div></div>` : ""}
     ${!d.fit_breakdown ? `<div class="section"><div class="notice">${d.jd_text || d.source_url ? `No fit review yet. <button class="btn sm primary" id="reviewJob" style="margin-left:8px">Review and score</button>` : "No posting text saved, so this job can't be reviewed. Add the posting to review it."}</div></div>` : ""}
     ${job.status !== "EMPLOYER_REJECTED" ? `<div class="coach-cta"><div><b>Interview Coach</b><p>${LIVE_STATUSES.has(job.status) ? "Prepare for this interview" : "Practice for this role"}: one question at a time, with feedback grounded in your profile.</p></div><button class="btn primary" id="openCoach">Open coach</button></div>` : ""}
     <div class="section"><h3>Tailored documents</h3><div class="docbtns">${docBox("resume")}${docBox("letter")}</div><p class="soon">Written from your confirmed profile and base resume. A resume takes about a minute.</p></div>
@@ -161,6 +172,7 @@ async function openJob(id) {
   `);
   $("#drawerStatus").addEventListener("change", (e) => changeStatus(id, e.target.value));
   $("#openCoach")?.addEventListener("click", () => openCoach(job));
+  $$("#drawer [data-quickadd]").forEach((b) => (b.onclick = () => openAdd("skill")));
   $("#reviewJob")?.addEventListener("click", async (e) => {
     e.target.disabled = true;
     e.target.textContent = "Reviewing…";
@@ -266,7 +278,7 @@ function reviewHtml(rv) {
     <div class="section"><h3>Summary</h3><p>${esc(rv.summary)}</p></div>
     ${rubricHtml(rv.fit_breakdown)}
     ${prefHtml(rv.pref_match)}
-    <div class="section"><h3>Match notes</h3><div class="match-grid"><div><b>Strengths</b>${list(rv.strengths)}</div><div><b>Gaps</b>${list(rv.gaps)}</div></div></div>`;
+    <div class="section"><div class="cardhead"><h3>Match notes</h3><button class="linkbtn" data-quickadd>Have a skill that's missing? Add it</button></div><div class="match-grid"><div><b>Strengths</b>${list(rv.strengths)}</div><div><b>Gaps</b>${list(rv.gaps)}</div></div></div>`;
 }
 
 function openAddJob() {
@@ -468,9 +480,15 @@ function readPrefs() {
   return out;
 }
 
-function factChip(f) {
-  return `<span class="chip ${f.verified ? "" : "unv"}">${esc(f.text)}${f.verified ? "" : ` <button class="x" data-confirm="${f.id}" aria-label="Confirm ${esc(f.text)}">confirm</button>`}<button class="x" data-del="${f.id}" aria-label="Remove ${esc(f.text)}">&times;</button></span>`;
+// One fact as a quiet row: no badge when confirmed, an amber dot and a
+// Confirm button when not. Edit swaps the text for an input in place.
+function factRow(f, { showGroup = false } = {}) {
+  return `<div class="item ${f.verified ? "" : "pending"}" data-fact="${f.id}">
+    <span class="ftext">${f.verified ? "" : '<span class="dot" aria-label="Unverified"></span>'}${esc(f.text)}${showGroup && f.group && !["Other", "Education", "Summary"].includes(f.group) ? ` <span class="note">${esc(f.group)}</span>` : ""}</span>
+    <span class="acts">${f.verified ? "" : `<button class="confirm" data-confirm="${f.id}">Confirm</button>`}<button data-edit="${f.id}">Edit</button><button data-del="${f.id}">Remove</button></span></div>`;
 }
+
+const groupsOf = (list) => [...new Set(list.map((f) => f.group))].map((g) => [g, list.filter((f) => f.group === g)]);
 
 function renderProfile() {
   const facts = profile.facts || [];
@@ -479,37 +497,120 @@ function renderProfile() {
   $("#strengthText").textContent = strength.missing.length ? `${strength.percent}% complete. Add these to sharpen your fit ratings:` : "Complete.";
   $("#strengthTips").innerHTML = strength.missing.slice(0, 4).map((t) => `<li>${esc(t)}</li>`).join("");
 
-  const skills = facts.filter((f) => f.kind === "skill");
-  const groups = [...new Set(skills.map((f) => f.group))];
-  $("#skillGroups").innerHTML = groups.length
-    ? groups.map((g) => `<div style="margin-bottom:14px"><span class="groupname">${esc(g)}</span><div class="chips" style="margin-top:6px">${skills.filter((f) => f.group === g).map(factChip).join("")}</div></div>`).join("")
-    : `<p class="sub">No skills yet.</p>`;
-  $("#skillGroupList").innerHTML = groups.map((g) => `<option value="${esc(g)}">`).join("");
+  // Everything not yet confirmed waits in one place.
+  const queue = facts.filter((f) => !f.verified && f.kind !== "role" && f.kind !== "summary");
+  $("#reviewQueue").innerHTML = queue.length
+    ? `<div class="queue"><h3>Needs your review · ${queue.length}</h3><p class="sub">Only confirmed facts are used in resumes, letters, answers, and the coach.</p>
+       ${queue.map((f) => factRow(f, { showGroup: true })).join("")}
+       ${queue.length > 1 ? `<div class="btnrow" style="margin-top:12px"><button class="btn sm primary" id="confirmAll">Confirm all ${queue.length}</button></div>` : ""}</div>`
+    : "";
 
-  const bullet = (f) => `<li>${esc(f.text)}${f.group && !["Other", "Education"].includes(f.group) ? ` <span class="note">(${esc(f.group)})</span>` : ""} ${f.verified ? '<span class="badge b-sent">Confirmed</span>' : `<span class="unverified">unverified</span> <button class="linkbtn" data-confirm="${f.id}">confirm</button>`} <button class="linkbtn" data-del="${f.id}">remove</button></li>`;
-  const results = facts.filter((f) => f.kind === "result");
-  $("#results").innerHTML = results.map(bullet).join("") || `<li class="note">No results yet.</li>`;
-  $("#education").innerHTML = facts.filter((f) => f.kind === "education").map(bullet).join("") || `<li class="note">None yet.</li>`;
+  const results = facts.filter((f) => f.kind === "result" && f.verified);
+  $("#resultsGrid").innerHTML = results.length
+    ? groupsOf(results).map(([g, l]) => `<div class="label">${esc(g)}<small>${l.length} result${l.length === 1 ? "" : "s"}</small></div><div class="list">${l.map((f) => factRow(f)).join("")}</div>`).join("")
+    : `<p class="sub">No confirmed results yet.</p>`;
 
-  $$("#profile [data-confirm]").forEach((b) => (b.onclick = async () => {
-    const id = Number(b.dataset.confirm);
-    const saved = await attempt(() => source.updateFact(id, { verified: true }), "Confirmed. It can now be used in documents.");
-    if (saved) { Object.assign(facts.find((f) => f.id === id), { verified: true }); renderProfile(); }
+  const skills = facts.filter((f) => f.kind === "skill" && f.verified);
+  $("#skillCols").innerHTML = skills.length
+    ? groupsOf(skills).map(([g, l]) => `<div class="skillgroup"><b>${esc(g)}</b>${l.map((f) => `<button class="skill" data-pick="${f.id}" aria-expanded="false">${esc(f.text)}</button><span class="skillacts" data-acts="${f.id}" hidden><button data-edit="${f.id}">Edit</button><button data-del="${f.id}">Remove</button></span>`).join("")}</div>`).join("")
+    : `<p class="sub">No confirmed skills yet.</p>`;
+
+  $("#education").innerHTML = facts.filter((f) => f.kind === "education" && f.verified).map((f) => factRow(f)).join("") || `<p class="sub">None yet.</p>`;
+
+  wireFacts($("#profile"));
+}
+
+// Confirm, edit, remove, and pick handlers for any container of fact rows.
+function wireFacts(root) {
+  const facts = () => profile.facts;
+  const find = (id) => facts().find((f) => f.id === Number(id));
+  $$("[data-confirm]", root).forEach((b) => (b.onclick = async () => {
+    if (await attempt(() => source.updateFact(Number(b.dataset.confirm), { verified: true }), "Confirmed. It can now be used in documents.")) {
+      find(b.dataset.confirm).verified = true;
+      renderProfile();
+    }
   }));
-  $$("#profile [data-del]").forEach((b) => (b.onclick = async () => {
-    const id = Number(b.dataset.del);
-    const f = facts.find((x) => x.id === id);
+  $("#confirmAll", root)?.addEventListener("click", async () => {
+    const queue = facts().filter((f) => !f.verified && f.kind !== "role" && f.kind !== "summary");
+    if (!confirm(`Confirm all ${queue.length} items as accurate?`)) return;
+    for (const f of queue) if (await attempt(() => source.updateFact(f.id, { verified: true }))) f.verified = true;
+    toast("Confirmed.");
+    renderProfile();
+  });
+  $$("[data-del]", root).forEach((b) => (b.onclick = async () => {
+    const f = find(b.dataset.del);
     if (f.verified && !confirm(`Remove "${f.text}" from your profile?`)) return;
-    if (await attempt(() => source.deleteFact(id), "Removed.")) { profile.facts = facts.filter((x) => x.id !== id); renderProfile(); }
+    if (await attempt(() => source.deleteFact(f.id), "Removed.")) { profile.facts = facts().filter((x) => x.id !== f.id); renderProfile(); }
+  }));
+  $$("[data-pick]", root).forEach((b) => (b.onclick = () => {
+    const acts = $(`[data-acts="${b.dataset.pick}"]`, root);
+    acts.hidden = !acts.hidden;
+    b.setAttribute("aria-expanded", String(!acts.hidden));
+  }));
+  $$("[data-edit]", root).forEach((b) => (b.onclick = () => {
+    const f = find(b.dataset.edit);
+    const host = b.closest(".item") || b.closest(".skillacts");
+    const form = document.createElement("form");
+    form.className = "editrow";
+    form.innerHTML = `<input maxlength="1000" aria-label="Edit text"><button class="btn sm primary">Save</button><button class="btn sm" type="button">Cancel</button>`;
+    form.querySelector("input").value = f.text;
+    host.replaceWith(form);
+    form.querySelector("input").focus();
+    form.querySelector("[type=button]").onclick = renderProfile;
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const text = form.querySelector("input").value.trim();
+      if (!text || text === f.text) { renderProfile(); return; }
+      const saved = await attempt(() => source.updateFact(f.id, { text }), "Saved. Edited facts go back to your review queue.");
+      if (saved) Object.assign(f, { text, verified: false });
+      renderProfile();
+    };
   }));
 }
 
-async function addFact(kind, textEl, groupEl) {
-  const text = textEl.value.trim();
-  if (!text) { textEl.focus(); return; }
-  const group = groupEl?.value.trim() || (kind === "education" ? "Education" : "Other");
-  const f = await attempt(() => source.addFact({ kind, group, text }), "Added as unverified. Confirm it to use it in documents.");
-  if (f) { profile.facts.push(f); textEl.value = ""; renderProfile(); }
+/* ---------- Add a skill, result, or education from anywhere ---------- */
+
+const ADD_KINDS = {
+  skill: { label: "Skill", group: "Group", placeholder: "e.g. Articulate Rise", groupHint: "e.g. Learning technology" },
+  result: { label: "Result or responsibility", group: "Employer", placeholder: "e.g. Cut review rounds from 3 to 2 across 40 courses", groupHint: "e.g. Lakeside College" },
+  education: { label: "Degree or certification", group: "", placeholder: "e.g. Certificate in Product Management, Cornell University" },
+};
+let addKind = "skill";
+
+function setAddKind(kind) {
+  addKind = kind;
+  const k = ADD_KINDS[kind];
+  $$("#addKind button").forEach((b) => { b.classList.toggle("on", b.dataset.k === kind); b.setAttribute("aria-checked", String(b.dataset.k === kind)); });
+  $("#addTextLabel").textContent = k.label;
+  $("#addText").placeholder = k.placeholder;
+  $("#addGroupField").hidden = !k.group;
+  $("#addGroupLabel").textContent = k.group;
+  $("#addGroup").placeholder = k.groupHint || "";
+  $("#addGroupList").innerHTML = [...new Set((profile.facts || []).filter((f) => f.kind === kind).map((f) => f.group))].map((g) => `<option value="${esc(g)}">`).join("");
+}
+
+function openAdd(kind = "skill") {
+  setAddKind(kind);
+  $("#addText").value = "";
+  $("#addGroup").value = "";
+  $("#addConfirm").checked = false;
+  $("#addDlg").showModal();
+  $("#addText").focus();
+}
+
+async function submitAdd() {
+  const text = $("#addText").value.trim();
+  if (!text) { $("#addText").focus(); return; }
+  const group = $("#addGroup").value.trim() || (addKind === "education" ? "Education" : addKind === "skill" ? "Skills" : "Other");
+  const fact = { kind: addKind, group, text };
+  const confirmed = $("#addConfirm").checked;
+  const out = confirmed
+    ? await attempt(() => source.confirmFacts([fact], "app"), "Added and confirmed.")
+    : await attempt(() => source.addFact(fact), "Added to your review queue on Profile.");
+  if (!out) return;
+  profile.facts.push(...(out.facts || [out]));
+  renderProfile();
+  $("#addDlg").close();
 }
 
 /* ---------- Interview coach ---------- */
@@ -805,9 +906,11 @@ function wire() {
     const saved = await attempt(() => source.savePrefs(prefs), "Preferences saved.");
     if (saved) { profile.prefs = { ...profile.prefs, ...prefs }; renderProfile(); $("#prefsStatus").textContent = "Saved."; }
   };
-  $("#skillForm").onsubmit = (e) => { e.preventDefault(); addFact("skill", $("#newSkill"), $("#newSkillGroup")); };
-  $("#resultForm").onsubmit = (e) => { e.preventDefault(); addFact("result", $("#newResult"), $("#newResultGroup")); };
-  $("#eduForm").onsubmit = (e) => { e.preventDefault(); addFact("education", $("#newEdu")); };
+  $("#quickAdd").onclick = () => openAdd("skill");
+  $$("#profile [data-add]").forEach((b) => (b.onclick = () => openAdd(b.dataset.add)));
+  $$("#addKind button").forEach((b) => (b.onclick = () => setAddKind(b.dataset.k)));
+  $("#addForm").onsubmit = (e) => { e.preventDefault(); submitAdd(); };
+  $("#addCancel").onclick = () => $("#addDlg").close();
   $("#pickUpload").onclick = openUpload;
   // From the Resumes tab: the same upload flow, on the Start page.
   $("#uploadResume").onclick = () => { go("start"); openUpload(); $("#startArea").scrollIntoView({ behavior: "smooth" }); };

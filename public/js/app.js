@@ -727,7 +727,7 @@ function wireDictation(ta, button, note) {
     let heard = false, failed = false;
     // Some browsers turn the microphone on but never return words (their
     // speech service is missing or switched off), so say so after a while.
-    const quiet = setTimeout(() => { if (rec && !heard) note.textContent = `Not getting any words back yet. ${DICTATION_FALLBACK}`; }, 8000);
+    const quiet = setTimeout(() => { if (rec && !heard) note.textContent = `Not getting any words back yet. Check that the right microphone is selected in System Settings > Sound. ${DICTATION_FALLBACK}`; }, 8000);
     rec.onresult = (e) => {
       heard = true;
       let finalText = "", interim = "";
@@ -739,7 +739,7 @@ function wireDictation(ta, button, note) {
     rec.onerror = (e) => { failed = true; note.textContent = DICTATION_ERRORS[e.error] || `Dictation stopped (${e.error}). ${DICTATION_FALLBACK}`; };
     rec.onend = () => {
       clearTimeout(quiet);
-      if (!heard && !failed) note.textContent = `Dictation ended without hearing any words. ${DICTATION_FALLBACK}`;
+      if (!heard && !failed) note.textContent = `Dictation ended without hearing any words. Check that the right microphone is selected in System Settings > Sound. ${DICTATION_FALLBACK}`;
       rec = null; button.textContent = "Dictate"; button.setAttribute("aria-pressed", "false"); button.classList.remove("listening");
     };
     rec.start();

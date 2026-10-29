@@ -702,6 +702,16 @@ const COACH_MINI = COACH_ICON.replace('class="coach-icon" viewBox="0 0 64 48" wi
 // Dictation through the browser's own speech recognition (Chrome, Edge, Safari).
 const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+const DICTATION_FALLBACK = "Dictation works in Chrome and Safari. In any browser you can also use Mac dictation: click in the answer box and press the Globe (fn) key twice.";
+const DICTATION_ERRORS = {
+  "not-allowed": "Microphone access was blocked. Allow it in your browser's site settings, then try again.",
+  "service-not-allowed": "This browser's speech recognition is turned off. In Safari, turn on Dictation in System Settings > Keyboard, then try again.",
+  network: `This browser couldn't reach its speech service (common in Brave and some other browsers). ${DICTATION_FALLBACK}`,
+  "audio-capture": "No microphone was found. Check that one is connected and selected in System Settings > Sound.",
+  "no-speech": "No speech was heard. Check that the right microphone is selected in System Settings > Sound, then try again.",
+  "language-not-supported": `Speech recognition doesn't support English (US) in this browser. ${DICTATION_FALLBACK}`,
+};
+
 function wireDictation(ta, button, note) {
   if (!Speech) { button.hidden = true; return; }
   let rec = null;
@@ -714,14 +724,24 @@ function wireDictation(ta, button, note) {
     rec.continuous = true;
     rec.interimResults = true;
     base = ta.value ? `${ta.value.replace(/\s+$/, "")} ` : "";
+    let heard = false, failed = false;
+    // Some browsers turn the microphone on but never return words (their
+    // speech service is missing or switched off), so say so after a while.
+    const quiet = setTimeout(() => { if (rec && !heard) note.textContent = `Not getting any words back yet. ${DICTATION_FALLBACK}`; }, 8000);
     rec.onresult = (e) => {
+      heard = true;
       let finalText = "", interim = "";
       for (let i = 0; i < e.results.length; i++) (e.results[i].isFinal ? (finalText += e.results[i][0].transcript) : (interim += e.results[i][0].transcript));
       ta.value = base + finalText + interim;
       ta.dispatchEvent(new Event("input"));
+      note.textContent = "Listening… edit the text before you submit.";
     };
-    rec.onerror = (e) => { note.textContent = e.error === "not-allowed" ? "Microphone access was blocked. Allow it in your browser's site settings." : "Dictation stopped."; };
-    rec.onend = () => { rec = null; button.textContent = "Dictate"; button.setAttribute("aria-pressed", "false"); button.classList.remove("listening"); };
+    rec.onerror = (e) => { failed = true; note.textContent = DICTATION_ERRORS[e.error] || `Dictation stopped (${e.error}). ${DICTATION_FALLBACK}`; };
+    rec.onend = () => {
+      clearTimeout(quiet);
+      if (!heard && !failed) note.textContent = `Dictation ended without hearing any words. ${DICTATION_FALLBACK}`;
+      rec = null; button.textContent = "Dictate"; button.setAttribute("aria-pressed", "false"); button.classList.remove("listening");
+    };
     rec.start();
     button.textContent = "Stop dictating";
     button.setAttribute("aria-pressed", "true");

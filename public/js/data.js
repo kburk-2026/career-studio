@@ -10,7 +10,7 @@
 //   listDocuments(), getDocument(id), saveDocument(id, fields), copyDocument(id),
 //   markSent(id), documentFileUrl(id)
 //   reviewPosting({ text } | { url }), reviewJob(id)   (AI; the demo replays a recorded review)
-//   generateDoc(jobId, kind), exportWord(id)            (AI / server; the demo copies a sample)
+//   generateDoc(jobId, kind), exportWord(id), exportTranscript(jobId)  (AI / server; the demo copies a sample)
 //   draftAnswer(jobId, { question, char_limit }), redraftAnswer(id)  (AI; the demo uses a sample)
 //   uploadResume(file), confirmFacts(facts, source), buildResume(entry)  (AI; the demo uses samples)
 //   getCoach(jobId), coachStart(jobId), coachAnswer(sid, answer), coachNext(sid), coachEnd(sid), coachDelete(sid)
@@ -230,6 +230,9 @@ export function demoSource() {
     async exportWord() {
       throw new Error("Word download works when signed in. The demo can download PDF.");
     },
+    async exportTranscript() {
+      throw new Error("Word download works when signed in. In the demo, use Copy transcript.");
+    },
     async uploadResume(file) {
       await new Promise((r) => setTimeout(r, 2000));
       const p = await loadProfile();
@@ -330,6 +333,14 @@ export function demoSource() {
 // The signed-in owner's real records, read and written through the API as
 // that user (row-level security applies to every request).
 export function apiSource(getToken) {
+  async function wordFile(query) {
+    const token = await getToken();
+    if (!token) throw Object.assign(new Error("Your session has expired. Sign in again."), { status: 401 });
+    const res = await fetch(`api/export?${query}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Word export failed (${res.status}).`);
+    const name = (res.headers.get("content-disposition") || "").match(/filename="([^"]+)"/)?.[1] || "document.docx";
+    return { blob: await res.blob(), name };
+  }
   async function api(path, { method = "GET", body } = {}, retried = false) {
     const token = await getToken({ force: retried });
     if (!token) throw Object.assign(new Error("Your session has expired. Sign in again."), { status: 401 });
@@ -407,14 +418,8 @@ export function apiSource(getToken) {
     async confirmFacts(facts, source) { return api("profile?batch=1", { method: "POST", body: { facts, source, confirmed: true } }); },
     async buildResume(entry) { return api("build", { method: "POST", body: { ...entry, confirmed: true } }); },
     async redraftAnswer(id) { return api(`answer?id=${id}`, { method: "POST", body: {} }); },
-    async exportWord(id) {
-      const token = await getToken();
-      if (!token) throw Object.assign(new Error("Your session has expired. Sign in again."), { status: 401 });
-      const res = await fetch(`api/export?id=${id}`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Word export failed (${res.status}).`);
-      const name = (res.headers.get("content-disposition") || "").match(/filename="([^"]+)"/)?.[1] || "document.docx";
-      return { blob: await res.blob(), name };
-    },
+    exportWord(id) { return wordFile(`id=${id}`); },
+    exportTranscript(jobId) { return wordFile(`coach=${jobId}`); },
   };
 }
 

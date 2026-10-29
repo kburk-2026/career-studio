@@ -99,3 +99,26 @@ test("web addresses in text become working links in Word", async () => {
   const buf = await toBuffer(resumeDocx({ ...resume, links: [{ label: "LinkedIn", url: "https://www.linkedin.com/in/example" }], publications: [{ text: "Talk", url: "https://example.com/talk" }] }));
   assert.ok(buf.length > 3000);
 });
+
+test("a practice interview downloads as a Word file, owner only", async () => {
+  const demoJob = JSON.parse(readFileSync(new URL("../public/demo/jobs/101.json", import.meta.url), "utf8"));
+  const turns = [
+    { position: 1, kind: "main", question: "Tell me about a review process.", answer: "I set up a checklist.", critique: { score: 4, worked: ["Clear"], improve: ["Add a result"] }, improved_answer: "A stronger one.", answered_at: "2026-10-29T10:00:00Z" },
+    { position: 2, kind: "followup", question: "What changed?", answered_at: null },
+  ];
+  globalThis.fetch = async (url, init = {}) => {
+    const u = String(url);
+    if (u.endsWith("/auth/v1/user")) return init.headers.Authorization === "Bearer good" ? Response.json({ email: "owner@example.com" }) : new Response("{}", { status: 401 });
+    if (u.includes("/jobs?id=eq.7")) return Response.json([{ company: "Maplecrest", role_title: "Designer" }]);
+    if (u.includes("/coach_sessions?job_id=eq.7")) return Response.json([{ id: 3, prep: demoJob.coach, created_at: "2026-10-29T09:00:00Z" }]);
+    if (u.includes("/coach_turns?session_id=eq.3")) return Response.json(turns);
+    return Response.json([]);
+  };
+  const req = (path, token) => new Request(`http://x/api/${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  assert.equal((await exportGET(req("export?coach=7", "bad"))).status, 401);
+  assert.equal((await exportGET(req("export?coach=8", "good"))).status, 404);
+  const res = await exportGET(req("export?coach=7", "good"));
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-disposition"), /Interview_practice_Maplecrest\.docx/);
+  assert.ok((await res.arrayBuffer()).byteLength > 3000);
+});

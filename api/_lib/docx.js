@@ -9,6 +9,7 @@ const NAVY = "1F4E79";
 const pt = (n) => Math.round(n * 2); // docx sizes are half-points
 const inch = (n) => Math.round(n * 1440);
 const FONT = "Calibri";
+const LETTER = { width: inch(8.5), height: inch(11) }; // docx defaults to A4
 
 const run = (text, opts = {}) => new TextRun({ text: String(text ?? ""), font: FONT, ...opts });
 
@@ -77,7 +78,7 @@ export function resumeDocx(c) {
       })),
     ] : []),
   ];
-  return new Document({ numbering: NUMBERING, styles: { default: { document: { run: { font: FONT } } } }, sections: [{ properties: { page: { margin: margins } }, children: body }] });
+  return new Document({ numbering: NUMBERING, styles: { default: { document: { run: { font: FONT } } } }, sections: [{ properties: { page: { size: LETTER, margin: margins } }, children: body }] });
 }
 
 export function letterDocx(c) {
@@ -94,7 +95,42 @@ export function letterDocx(c) {
     ...(c.paragraphs || []).map((x) => p(x)),
     tight(c.closing), tight(c.signature),
   ];
-  return new Document({ styles: { default: { document: { run: { font: FONT } } } }, sections: [{ properties: { page: { margin: margins } }, children: body }] });
+  return new Document({ styles: { default: { document: { run: { font: FONT } } } }, sections: [{ properties: { page: { size: LETTER, margin: margins } }, children: body }] });
+}
+
+// A practice interview: prep, then each question with the answer and feedback.
+export function transcriptDocx({ company, role, date, prep = {}, turns = [], maxMain }) {
+  const size = pt(11);
+  const p = (text, opts = {}) => new Paragraph({ spacing: { after: 120 }, children: linkedRuns(text, { size, ...opts }) });
+  const label = (text) => new Paragraph({ spacing: { before: 120, after: 40 }, keepNext: true, children: [run(text, { bold: true, size, color: NAVY })] });
+  const item = (text) => new Paragraph({ numbering: { reference: "bullets", level: 0 }, spacing: { after: 40 }, children: linkedRuns(text, { size }) });
+  const items = (title, list) => (list?.length ? [label(title), ...list.map(item)] : []);
+  let n = 0;
+  const body = [
+    new Paragraph({ spacing: { after: 40 }, children: [run("Practice interview", { bold: true, size: pt(20), color: NAVY })] }),
+    new Paragraph({ spacing: { after: 200 }, border: { bottom: { style: BorderStyle.SINGLE, size: 9, color: NAVY, space: 4 } },
+      children: [run([company, role, date].filter(Boolean).join("  |  "), { size: pt(10.5) })] }),
+  ];
+  if (prep.priorities?.length || prep.concern || prep.stories?.length) {
+    body.push(heading("Prep"));
+    if (prep.priorities?.length) body.push(label("What the hiring team needs most"), ...prep.priorities.map((x) => item(`${x.title}: ${x.detail}`)));
+    if (prep.concern) body.push(label("Likely concern"), p(prep.concern));
+    (prep.stories || []).forEach((x, i) => body.push(label(`Story ${i + 1}: ${x.title}`),
+      p(`Situation and task: ${x.situation}`), p(`Action: ${x.action}`), p(`Result: ${x.result}`)));
+  }
+  body.push(heading("Interview"));
+  for (const t of turns) {
+    const title = t.kind === "followup" ? "Follow-up" : `Question ${++n}${maxMain ? ` of ${maxMain}` : ""}`;
+    const c = t.critique || {};
+    body.push(label(title), p(t.question, { bold: true }));
+    if (!t.answered_at) { body.push(p("Not answered.", { italics: true })); continue; }
+    body.push(label("My answer"), p(t.answer));
+    if (c.score != null) body.push(label(`Score: ${c.score}/5`));
+    body.push(...items("What worked", c.worked), ...items("Improve", c.improve));
+    if (t.improved_answer) body.push(label("A stronger version"), p(t.improved_answer));
+  }
+  const margins = { top: inch(0.9), bottom: inch(0.9), left: inch(1), right: inch(1) };
+  return new Document({ numbering: NUMBERING, styles: { default: { document: { run: { font: FONT } } } }, sections: [{ properties: { page: { size: LETTER, margin: margins } }, children: body }] });
 }
 
 export const toBuffer = (doc) => Packer.toBuffer(doc);

@@ -137,6 +137,14 @@ function prefHtml(match) {
   }).join("")}</div></div>`;
 }
 
+async function saveFile(make) {
+  const file = await attempt(make);
+  if (!file) return;
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(file.blob), download: file.name });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 const list = (items) => `<ul>${(items || []).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
 
 // The job panel's open tab, kept when the same job's panel re-renders
@@ -450,13 +458,7 @@ async function openDoc(id, backJobId) {
   $("#editor").addEventListener("paste", (e) => pastePlain(e));
   let timer;
   $("#editor").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(recheck, 600); });
-  $("#dlWord").onclick = async () => {
-    const file = await attempt(() => source.exportWord(doc.id));
-    if (!file) return;
-    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(file.blob), download: file.name });
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  };
+  $("#dlWord").onclick = () => saveFile(() => source.exportWord(doc.id));
 
   $("#backJob")?.addEventListener("click", () => openJob(job.id));
   $$("#drawer [data-cmd]").forEach((b) => (b.onclick = () => { document.execCommand(b.dataset.cmd); $("#editor").focus(); }));
@@ -819,6 +821,7 @@ async function openCoach(job, data) {
       ${s.state === "ASK_MAIN" ? `<button class="btn primary" id="coachNext">Next question (${s.main_count + 1} of ${data.max_main})</button>` : ""}
       ${s.state === "DONE" ? `<button class="btn primary" id="coachRestart">Start a new session</button>` : `<button class="btn" id="coachEnd">End session</button>`}
       <button class="btn" id="coachCopy">Copy transcript</button>
+      <button class="btn" id="coachWord">Download Word</button>
       <button class="btn" id="coachDelete">Delete session</button>
     </div>`, true);
 
@@ -852,6 +855,7 @@ async function openCoach(job, data) {
     const out = await attempt(() => source.coachStart(job.id));
     openCoach(job, out || undefined);
   });
+  $("#coachWord").onclick = () => saveFile(() => source.exportTranscript(job.id));
   $("#coachCopy").onclick = async () => {
     try { await navigator.clipboard.writeText(transcriptText(job, data)); toast("Transcript copied."); } catch { toast("Your browser blocked copying."); }
   };

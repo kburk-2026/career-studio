@@ -74,7 +74,7 @@ fictional demo.
 
 ## How it was verified
 
-- **82 automated tests**, including fake-Claude tests for the shorten loop,
+- **83 automated tests**, including fake-Claude tests for the shorten loop,
   the coach's turn order, and the numeric guard.
 - **A live row-level-security test** (55 checks) that plants canary rows and
   private files, then confirms an anonymous visitor and a second account can

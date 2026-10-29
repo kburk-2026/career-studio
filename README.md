@@ -48,7 +48,7 @@ Requires Node 20+.
 ```bash
 npm install
 npm run dev        # http://localhost:4173 (the demo; sign in for live data)
-npm test           # 82 unit and fixture tests
+npm test           # 83 unit and fixture tests
 npm run check      # privacy guard
 npm run check:rls  # live row-level security test (needs .env; see .env.example)
 npm run eval       # live AI evals on a fictional profile (costs a few cents)

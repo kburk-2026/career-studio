@@ -103,9 +103,11 @@ export function dedupeSkills(skills = []) {
   }).filter((s) => s.items);
 }
 
-// The owner's web links, from profile preferences, in display order.
+// The owner's web links, from profile preferences, in display order. LinkedIn
+// shows its short address, so it still reads correctly on paper and to an ATS.
 export function linksFromPrefs(prefs = {}) {
-  return [["LinkedIn", prefs.linkedin_url], ["Portfolio", prefs.portfolio_url], ["Website", prefs.website_url]]
+  const short = (url) => String(url || "").replace(/^https:\/\/(www\.)?/i, "").replace(/\/$/, "");
+  return [[short(prefs.linkedin_url), prefs.linkedin_url], ["Portfolio", prefs.portfolio_url], ["Website", prefs.website_url]]
     .filter(([, url]) => safeUrl(url)).map(([label, url]) => ({ label, url }));
 }
 

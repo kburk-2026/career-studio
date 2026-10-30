@@ -5,6 +5,7 @@
 import { handle, requireOwner, rest, idParam, HttpError } from "./_lib/supabase.js";
 import { resumeDocx, letterDocx, transcriptDocx, toBuffer } from "./_lib/docx.js";
 import { MAX_MAIN } from "./_lib/coach/machine.js";
+import { withProfileLinks } from "./_lib/links.js";
 
 const fileName = (name) => name.replace(/\.pdf$/i, "").replace(/[^A-Za-z0-9_.-]+/g, "_");
 
@@ -33,9 +34,10 @@ export const GET = handle(async (request) => {
   const session = await requireOwner(request);
   if (new URL(request.url).searchParams.has("coach")) return transcript(session, idParam(request, "coach"));
   const id = idParam(request);
-  const [doc] = await rest(session, `documents?id=eq.${id}&select=kind,content,file_name,title`);
+  const [doc] = await rest(session, `documents?id=eq.${id}&select=kind,content,file_name,title,sent`);
   if (!doc) throw new HttpError(404, "Not found.");
   if (!doc.content) throw new HttpError(400, "This is an uploaded file. Download the original instead.");
-  const buffer = await toBuffer(doc.kind === "letter" ? letterDocx(doc.content) : resumeDocx(doc.content));
+  const { content } = await withProfileLinks(session, doc);
+  const buffer = await toBuffer(doc.kind === "letter" ? letterDocx(content) : resumeDocx(content));
   return wordFile(buffer, doc.file_name || doc.title || "document");
 });

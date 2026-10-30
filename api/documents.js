@@ -5,6 +5,7 @@
 // POST  /api/documents?copy=5       -> editable copy of any document
 // POST  /api/documents?sent=5       -> mark as sent (locks it for good)
 import { handle, json, requireOwner, rest, restWrite, readJson, idParam, v, HttpError } from "./_lib/supabase.js";
+import { withProfileLinks } from "./_lib/links.js";
 
 const LIST = "id,job_id,parent_id,kind,source,title,file_name,sent,sent_at,created_at,updated_at";
 const MAX_CONTENT = 200 * 1024;
@@ -31,7 +32,7 @@ export const GET = handle(async (request) => {
     return json(200, { url: `${session.cfg.url}/storage/v1${signedURL}&download=${encodeURIComponent(doc.file_name || "document.pdf")}` });
   }
   const { file_path, ...out } = doc;
-  return json(200, { ...out, has_file: Boolean(file_path) });
+  return json(200, { ...(await withProfileLinks(session, out)), has_file: Boolean(file_path) });
 });
 
 export const PATCH = handle(async (request) => {

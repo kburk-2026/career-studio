@@ -26,12 +26,13 @@ export function linkedRuns(text, opts = {}) {
 // Contact line plus the owner's profile links (LinkedIn, Portfolio, ...).
 function contactRuns(c, size) {
   const links = (c.links || []).filter((l) => SAFE_URL.test(l.url || ""));
-  return [...linkedRuns(c.contact, { size }), ...links.flatMap((l) => [run("  |  ", { size }), link(l.label, l.url, { size })])];
+  return [...linkedRuns(c.contact, { size }), ...links.flatMap((l) => [run(" | ", { size }), link(l.label, l.url, { size })])];
 }
 
 function heading(text) {
   return new Paragraph({
     spacing: { before: 120, after: 60 },
+    keepNext: true,
     border: { bottom: { style: BorderStyle.SINGLE, size: 7, color: NAVY, space: 1 } },
     children: [run(text.toUpperCase(), { bold: true, size: pt(10.5), color: NAVY, characterSpacing: 8 })],
   });
@@ -47,7 +48,8 @@ function row(left, right, { bold = true, width }) {
   });
 }
 
-const bullet = (text) => new Paragraph({ numbering: { reference: "bullets", level: 0 }, spacing: { after: 20 }, children: linkedRuns(text, { size: pt(9.8) }) });
+// Every bullet but the last stays with the next, so a role moves to a new page whole.
+const bullet = (text, i, list) => new Paragraph({ numbering: { reference: "bullets", level: 0 }, spacing: { after: 20 }, keepLines: true, keepNext: i < list.length - 1, children: linkedRuns(text, { size: pt(9.8) }) });
 
 const NUMBERING = {
   config: [{
@@ -88,8 +90,8 @@ export function letterDocx(c) {
   const body = [
     new Paragraph({ spacing: { after: 40 }, children: [run(c.name, { bold: true, size: pt(20), color: NAVY, characterSpacing: 12 })] }),
     new Paragraph({ spacing: { after: 80 }, border: { bottom: { style: BorderStyle.SINGLE, size: 9, color: NAVY, space: 4 } }, children: contactRuns(c, pt(9.5)) }),
-    new Paragraph({ spacing: { before: 200 }, children: [] }),
-    tight(c.date), p(c.recipient),
+    new Paragraph({ spacing: { before: 200 }, children: [run(c.date, { size: pt(10.5) })] }),
+    p(c.recipient),
     p(c.subject, { bold: true }),
     p(c.greeting),
     ...(c.paragraphs || []).map((x) => p(x)),

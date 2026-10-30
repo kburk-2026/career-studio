@@ -6,6 +6,8 @@ import { docText, wordCount } from "../public/js/doc.js";
 import { resumeDocx, letterDocx, toBuffer } from "../api/_lib/docx.js";
 import { undashAll, POST as generatePOST } from "../api/generate.js";
 import { GET as exportGET } from "../api/export.js";
+import { GET as documentsGET } from "../api/documents.js";
+import JSZip from "jszip";
 import { RESUME_SCHEMA, LETTER_SCHEMA, writerContent } from "../api/_lib/prompts.js";
 
 const demo = JSON.parse(readFileSync(new URL("../public/demo/documents.json", import.meta.url), "utf8")).documents;
@@ -87,7 +89,7 @@ test("each skill appears once across all skill lines", () => {
 
 test("document links come only from the profile and must be https", () => {
   assert.deepEqual(linksFromPrefs({ linkedin_url: "https://www.linkedin.com/in/x", portfolio_url: "http://insecure.example", website_url: "" }),
-    [{ label: "LinkedIn", url: "https://www.linkedin.com/in/x" }]);
+    [{ label: "linkedin.com/in/x", url: "https://www.linkedin.com/in/x" }]);
   assert.throws(() => cleanUrl("javascript:alert(1)", "Link"), /https/);
   assert.equal(cleanUrl("https://example.com/talk", "Link"), "https://example.com/talk");
   assert.throws(() => cleanPrefs({ portfolio_url: "ftp://example.com" }));
@@ -121,4 +123,37 @@ test("a practice interview downloads as a Word file, owner only", async () => {
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-disposition"), /Interview_practice_Maplecrest\.docx/);
   assert.ok((await res.arrayBuffer()).byteLength > 3000);
+});
+
+const paragraphs = async (doc) => {
+  const zip = await JSZip.loadAsync(await toBuffer(doc));
+  return (await zip.file("word/document.xml").async("string")).match(/<w:p[ >].*?<\/w:p>/gs);
+};
+
+test("Word files have no empty paragraphs, and roles stay together across pages", async () => {
+  for (const doc of [resumeDocx(resume), letterDocx(letter)]) {
+    for (const p of await paragraphs(doc)) assert.match(p, /<w:t[ >]/, "paragraph has text");
+  }
+  const bullets = (await paragraphs(resumeDocx({ ...resume, roles: [{ org: "A", title: "B", dates: "2020", bullets: ["one", "two"] }] }))).filter((p) => p.includes("<w:numPr>"));
+  assert.ok(bullets[0].includes("<w:keepNext/>") && bullets[0].includes("<w:keepLines/>"));
+  assert.ok(!bullets[1].includes("<w:keepNext/>"));
+});
+
+test("drafts missing links pick them up from the profile; sent documents never change", async () => {
+  const prefs = { linkedin_url: "https://www.linkedin.com/in/x", portfolio_url: "https://example.com/p", website_url: null };
+  globalThis.fetch = async (url, init = {}) => {
+    const u = String(url);
+    if (u.endsWith("/auth/v1/user")) return Response.json({ email: "owner@example.com" });
+    if (u.includes("/profile_prefs")) return Response.json([prefs]);
+    if (u.includes("/documents?id=eq.1")) return Response.json([{ kind: "resume", title: "d", content: { ...resume, links: [] }, sent: false }]);
+    if (u.includes("/documents?id=eq.2")) return Response.json([{ kind: "resume", title: "s", content: { ...resume, links: [] }, sent: true }]);
+    return Response.json([]);
+  };
+  const get = async (id) => (await documentsGET(new Request(`http://x/api/documents?id=${id}`, { headers: { Authorization: "Bearer good" } }))).json();
+  assert.deepEqual((await get(1)).content.links.map((l) => l.label), ["linkedin.com/in/x", "Portfolio"]);
+  assert.deepEqual((await get(2)).content.links, []);
+  const word = await exportGET(new Request("http://x/api/export?id=1", { headers: { Authorization: "Bearer good" } }));
+  const zip = await JSZip.loadAsync(Buffer.from(await word.arrayBuffer()));
+  const xml = await zip.file("word/document.xml").async("string");
+  assert.ok(xml.includes("linkedin.com/in/x") && xml.includes(">Portfolio<"));
 });

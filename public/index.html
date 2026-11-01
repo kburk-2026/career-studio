@@ -40,13 +40,13 @@
         <select id="sort" aria-label="Sort"><option value="date">Most recent</option><option value="fit">Highest fit</option><option value="company">Company A to Z</option></select>
         <span class="count" id="count">Loading…</span>
       </div>
-      <table><thead><tr><th>Company / role</th><th>Fit</th><th>Applied</th><th>Status</th><th>Questions</th></tr></thead><tbody id="rows"></tbody></table>
+      <table><thead><tr><th>Company / role</th><th>Fit</th><th>Applied</th><th>Status</th><th>Application link</th><th>Questions</th></tr></thead><tbody id="rows"></tbody></table>
     </section>
 
     <!-- RESUMES -->
     <section id="resumes" class="view">
       <div class="top"><div><div class="eyebrow">Resumes</div><h1>Resumes and letters</h1><p class="sub">Everything you uploaded or the app generated, linked to the job it was made for.</p></div>
-        <div class="topactions"><div class="seg" id="resFilter"><button class="on" data-f="all">All</button><button data-f="uploaded">Uploaded</button><button data-f="generated">Generated</button><button data-f="letter">Cover letters</button></div><button class="btn primary" id="uploadResume">Upload resume</button></div></div>
+        <div class="topactions"><button class="btn" id="editBase">Edit base resume</button><div class="seg" id="resFilter"><button class="on" data-f="all">All</button><button data-f="uploaded">Uploaded</button><button data-f="generated">Generated</button><button data-f="letter">Cover letters</button></div><button class="btn primary" id="uploadResume">Upload resume</button></div></div>
       <div class="reslist" id="reslist"></div>
       <p class="hint">Documents sent to an employer are locked. Editing one makes a copy, so you always know exactly what each employer received.</p>
     </section>
@@ -81,6 +81,7 @@
           <div class="field"><label for="p_needs_sponsorship">Needs visa sponsorship</label><select id="p_needs_sponsorship" name="needs_sponsorship"><option value="">Not set</option><option value="false">No</option><option value="true">Yes</option></select></div>
           <div class="field"><label for="p_earliest_start">Earliest start</label><input id="p_earliest_start" name="earliest_start" maxlength="1000" placeholder="e.g. 2 weeks notice"></div>
           <div class="field wide"><label for="p_must_haves">Must-haves and dealbreakers</label><textarea id="p_must_haves" name="must_haves" rows="2" maxlength="1000"></textarea></div>
+          <div class="field wide"><label for="p_writer_notes">Feedback for the resume and cover letter writer</label><textarea id="p_writer_notes" name="writer_notes" rows="5" maxlength="4000" placeholder="One note per line. e.g. Keep the summary to three sentences. Lead with product work, not instructional design. Avoid the word &quot;leverage&quot;."></textarea><div class="help">Followed in every new resume and cover letter. Existing drafts don't change, so use New version on a job to apply it.</div></div>
         </div>
         <div class="savebar"><button class="btn primary" type="submit">Save preferences</button><span class="note" id="prefsStatus"></span></div>
       </form>

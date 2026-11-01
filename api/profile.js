@@ -11,7 +11,7 @@ export const PREF_FIELDS = {
   target_titles: "text", level: "text", salary_min: "int", salary_target: "int", employment_type: "text",
   arrangement: "text", location: "text", industries_preferred: "text", industries_avoid: "text",
   company_size: "text", travel: "text", needs_sponsorship: "bool", earliest_start: "text", must_haves: "text",
-  linkedin_url: "url", portfolio_url: "url", website_url: "url",
+  linkedin_url: "url", portfolio_url: "url", website_url: "url", writer_notes: "long",
 };
 
 // An optional https link, or a 400.
@@ -40,6 +40,7 @@ export function cleanPrefs(body) {
     out[field] = type === "int" ? v.int(body[field], label, { max: 10_000_000 })
       : type === "bool" ? v.bool(body[field], label)
       : type === "url" ? cleanUrl(body[field], label)
+      : type === "long" ? v.text(body[field], label, { max: 4000 })
       : v.text(body[field], label, { max: 1000 });
   }
   return out;

@@ -234,7 +234,7 @@ td:nth-child(2),.date,.qcount{white-space:nowrap}
   h1{font-size:40px}
   .cmd{flex-direction:column;align-items:stretch}
   .figures{grid-template-columns:1fr 1fr}.fig{padding:12px 14px;border-bottom:1px solid #f7f1d555}.fig:nth-child(odd){padding-left:0}.fig:nth-child(2){border-right:0}.fig b{font-size:46px}
-  th:nth-child(3),td:nth-child(3),th:nth-child(5),td:nth-child(5){display:none}
+  th:nth-child(3),td:nth-child(3),th:nth-child(5),td:nth-child(5),th:nth-child(6),td:nth-child(6){display:none}
   td{padding:12px 8px}.segs{display:none}.fitnum{margin-left:0}
   table{table-layout:fixed}th:nth-child(1){width:auto}th:nth-child(2){width:44px}th:nth-child(4){width:128px}
   .statusselect{width:100%;font-size:10px;padding:6px 4px}
@@ -494,3 +494,5 @@ tbody tr:hover td{background:#FAFAF6}
 .coach-mini{flex:none}
 .tabpane{padding-bottom:28px}
 @media (max-width:600px){.drawer .paneltabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.paneltabs [role=tab]{flex:none;padding:10px 10px 8px;font-size:13px}}
+.applink{white-space:nowrap}.applink a{display:inline-block;max-width:150px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;font-size:12px;margin-right:8px}
+.applink .none{color:var(--dim);font-size:12px}

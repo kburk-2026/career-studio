@@ -24,6 +24,7 @@ export function toListItem(row) {
     answer_count: row.application_answers?.[0]?.count ?? 0,
     has_resume: Boolean(row.resume_file),
     has_cover_letter: Boolean(row.cover_letter_file),
+    source_url: row.source_url || null,
   };
 }
 
@@ -61,8 +62,8 @@ function jobFields(body, { creating }) {
   if (creating || "role_title" in body) row.role_title = v.text(body.role_title, "Role", { max: 200, required: true });
   if ("location" in body) row.location = v.text(body.location, "Location", { max: 200 });
   if ("source_url" in body) {
-    const url = v.text(body.source_url, "Posting link", { max: 2000 });
-    if (url && !/^https:\/\//i.test(url)) throw new HttpError(400, "Posting link must start with https://.");
+    const url = v.text(body.source_url, "Application link", { max: 2000 });
+    if (url && !/^https:\/\/[^\s"<>]+$/i.test(url)) throw new HttpError(400, "Application link must start with https://.");
     row.source_url = url;
   }
   if ("jd_text" in body) row.jd_text = v.text(body.jd_text, "Job description", { max: 60_000 });
@@ -105,7 +106,7 @@ export const GET = handle(async (request) => {
 
   const rows = await rest(session,
     `jobs?order=applied_on.desc.nullsfirst,created_at.desc&select=` +
-    `id,company,role_title,location,status,applied_on,fit_score,odds_score,resume_file,cover_letter_file,updated_at,` +
+    `id,company,role_title,location,status,applied_on,source_url,fit_score,odds_score,resume_file,cover_letter_file,updated_at,` +
     `application_answers(count)`);
   const latest = rows.map((r) => r.updated_at).sort().pop();
   const meta = session.user.user_metadata || {};

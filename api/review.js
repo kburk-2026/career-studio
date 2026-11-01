@@ -71,7 +71,7 @@ export const POST = handle(async (request) => {
     rest(session, "profile_facts?select=kind,group_title,text,url,verified&verified=is.true&order=kind,group_title,position"),
     rest(session, "profile_prefs?select=*"),
   ]);
-  const { user_id, updated_at, ...prefs } = prefRows[0] || {};
+  const { user_id, updated_at, writer_notes, ...prefs } = prefRows[0] || {};
   if (!facts.length) throw new HttpError(400, "Your profile has no confirmed facts yet. Add and confirm some first.");
 
   const { data } = await withBudget(session, () =>

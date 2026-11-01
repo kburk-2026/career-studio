@@ -4,6 +4,7 @@
 // confirmed facts and base resume, checks it, and saves it as a draft.
 // Problems found by the checks are returned for the owner to fix in the
 // editor; nothing is silently rewritten.
+import mammoth from "mammoth";
 import { handle, json, requireOwner, rest, restWrite, idParam, v, HttpError } from "./_lib/supabase.js";
 import { generate } from "./_lib/ai/index.js";
 import { withBudget } from "./_lib/limits.js";
@@ -21,15 +22,26 @@ export function undashAll(value) {
 
 const fileSafe = (s) => String(s || "").replace(/[^A-Za-z0-9]+/g, "").slice(0, 40) || "Document";
 
-async function baseResumePdf(session) {
-  const [doc] = await rest(session, "documents?select=file_path&source=eq.uploaded&kind=eq.resume&job_id=is.null&file_path=not.is.null&order=created_at.desc&limit=1");
-  if (!doc) throw new HttpError(400, "Upload your base resume first. The generator copies its format, dates, and header.");
-  const path = doc.file_path.split("/").map(encodeURIComponent).join("/");
+// The newest resume not tied to a job: an upload, or the editable copy of one.
+export async function loadBase(session) {
+  const [doc] = await rest(session, "documents?select=id,file_path,file_name,content&kind=eq.resume&source=in.(uploaded,built)&job_id=is.null&order=created_at.desc&limit=1");
+  if (!doc || (!doc.content && !doc.file_path)) throw new HttpError(400, "Upload your base resume first. The generator copies its format, dates, and header.");
+  return doc;
+}
+
+// The base resume as a message block for the writer.
+export async function baseBlock(session, base) {
+  if (base.content) return { type: "text", text: `<base_resume>\n${JSON.stringify(base.content)}\n</base_resume>` };
+  const path = base.file_path.split("/").map(encodeURIComponent).join("/");
   const res = await fetch(`${session.cfg.url}/storage/v1/object/authenticated/docs/${path}`, {
     headers: { apikey: session.cfg.anonKey, Authorization: `Bearer ${session.token}` },
   });
   if (!res.ok) throw new HttpError(502, "Could not read your base resume file.");
-  return Buffer.from(await res.arrayBuffer()).toString("base64");
+  const bytes = Buffer.from(await res.arrayBuffer());
+  if (/\.docx$/i.test(base.file_path)) {
+    return { type: "text", text: `<base_resume>\n${(await mammoth.extractRawText({ buffer: bytes })).value.trim()}\n</base_resume>` };
+  }
+  return { type: "document", source: { type: "base64", media_type: "application/pdf", data: bytes.toString("base64") }, title: "Base resume", cache_control: { type: "ephemeral" } };
 }
 
 export const POST = handle(async (request) => {
@@ -41,17 +53,18 @@ export const POST = handle(async (request) => {
   if (!job) throw new HttpError(404, "Job not found.");
   if (!job.jd_text) throw new HttpError(400, "This job has no posting text. Add the posting first.");
 
-  const [facts, pdf] = await Promise.all([
+  const [facts, base, [notes]] = await Promise.all([
     rest(session, "profile_facts?select=kind,group_title,text,url,verified&verified=is.true&order=kind,group_title,position"),
-    baseResumePdf(session),
+    loadBase(session),
+    rest(session, "profile_prefs?select=writer_notes"),
   ]);
   if (!facts.length) throw new HttpError(400, "Your profile has no confirmed facts yet.");
 
   const today = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Phoenix" });
   const clean = (s) => String(s).replace(/["<>]/g, "");
   const content = [
-    { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdf }, title: "Base resume", cache_control: { type: "ephemeral" } },
-    { type: "text", text: writerContent({ kind, posting: job.jd_text, company: clean(job.company), role: clean(job.role_title), strengths: job.strengths, gaps: job.gaps, today }) },
+    await baseBlock(session, base),
+    { type: "text", text: writerContent({ kind, posting: job.jd_text, company: clean(job.company), role: clean(job.role_title), strengths: job.strengths, gaps: job.gaps, today, notes: notes?.writer_notes }) },
   ];
 
   const { data, meta } = await withBudget(session, () =>
@@ -69,7 +82,7 @@ export const POST = handle(async (request) => {
   const [prefRow] = await rest(session, "profile_prefs?select=linkedin_url,portfolio_url,website_url");
   draft.links = linksFromPrefs(prefRow);
   if (draft.skills) draft.skills = dedupeSkills(draft.skills);
-  const flags = checkDraft(kind, draft, evidenceNumbers(...facts.map((f) => f.text)));
+  const flags = checkDraft(kind, draft, evidenceNumbers(...facts.map((f) => f.text), base.content ? JSON.stringify(base.content) : ""));
   const label = kind === "letter" ? "Cover letter" : "Resume";
   const name = fileSafe((draft.name || "").split(/\s+/).map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join("_"));
   const [saved] = await restWrite(session, "POST", "documents?select=id,job_id,kind,source,title,file_name,sent,created_at", {

@@ -1,5 +1,5 @@
 import { pickSource } from "./data.js";
-import { STATUS, STATUS_KEYS, LIVE_STATUSES, esc, formatDate, filterJobs, computeStats, RUBRIC, profileStrength, similarity } from "./format.js";
+import { STATUS, STATUS_KEYS, LIVE_STATUSES, esc, formatDate, cleanLink, linkSite, filterJobs, computeStats, RUBRIC, profileStrength, similarity } from "./format.js";
 import { renderDoc, readDoc } from "./doc.js";
 import { checkDraft, evidenceNumbers } from "./checks.js";
 import { loadConfig, consumeRedirect, hasSession, getAccessToken, sendMagicLink, signOut } from "./auth.js";
@@ -67,14 +67,20 @@ function renderRows() {
         <td>${segs(j.fit_score)}<span class="fitnum">${j.fit_score ?? "--"}</span></td>
         <td class="date">${formatDate(j.applied_on)}</td>
         <td>${statusSelect(j)}</td>
+        <td class="applink">${j.source_url ? `<a href="${esc(j.source_url)}" target="_blank" rel="noopener noreferrer" title="${esc(j.source_url)}">${esc(linkSite(j.source_url))}</a><button class="btn sm" data-copy="${esc(j.source_url)}" aria-label="Copy application link for ${esc(j.company)}">Copy</button>` : `<span class="none">Add in job</span>`}</td>
         <td class="qcount"><b>${j.answer_count || 0}</b>${j.answer_count === 1 ? "answer" : "answers"}</td></tr>`).join("")
-    : `<tr><td colspan="5" class="empty">No applications match. Use Add a job to start one.</td></tr>`;
+    : `<tr><td colspan="6" class="empty">No applications match. Use Add a job to start one.</td></tr>`;
   $$("#rows tr[data-id]").forEach((tr) => {
-    const open = (e) => { if (!e.target.closest("select")) openJob(Number(tr.dataset.id)); };
+    const open = (e) => { if (!e.target.closest("select,a,button")) openJob(Number(tr.dataset.id)); };
     tr.addEventListener("click", open);
     tr.addEventListener("keydown", (e) => { if (e.key === "Enter") open(e); });
   });
   $$("#rows .statusselect").forEach((s) => s.addEventListener("change", () => changeStatus(Number(s.dataset.job), s.value)));
+  $$("#rows [data-copy]").forEach((b) => (b.onclick = () => copyLink(b.dataset.copy)));
+}
+
+async function copyLink(url) {
+  try { await navigator.clipboard.writeText(url); toast("Link copied."); } catch { toast("Your browser blocked copying."); }
 }
 
 async function refreshJobs() {
@@ -191,7 +197,8 @@ async function openJob(id) {
   // Tabs, in workflow order; the coach comes last. Every pane is rendered up
   // front (hidden when inactive) so the wiring below finds its elements.
   const panes = [
-    ["overview", "Overview", `${rubricHtml(d.fit_breakdown)}
+    ["overview", "Overview", `<form class="section" id="linkForm"><h3>Application link</h3><div class="addrow" style="grid-template-columns:1fr auto auto"><input id="jobLink" type="text" inputmode="url" maxlength="2000" aria-label="Application link" placeholder="https://" value="${esc(d.source_url || "")}"><button class="btn sm" type="submit">Save</button><button class="btn sm" type="button" id="copyJobLink">Copy</button></div></form>
+      ${rubricHtml(d.fit_breakdown)}
       ${prefHtml(d.pref_match)}
       ${d.strengths?.length || d.gaps?.length ? `<div class="section"><div class="cardhead"><h3>Match notes</h3><button class="linkbtn" data-quickadd>Have a skill that's missing? Add it</button></div><div class="match-grid"><div><b>Strengths</b>${list(d.strengths)}</div><div><b>Gaps</b>${list(d.gaps)}</div></div></div>` : ""}
       ${!d.fit_breakdown ? `<div class="section"><div class="notice">${d.jd_text || d.source_url ? `No fit review yet. <button class="btn sm primary" id="reviewJob" style="margin-left:8px">Review and score</button>` : "No posting text saved, so this job can't be reviewed. Add the posting to review it."}</div></div>` : ""}
@@ -215,6 +222,13 @@ async function openJob(id) {
   wireTabs(id);
   $("#drawerStatus").addEventListener("change", (e) => changeStatus(id, e.target.value));
   $("#openCoach")?.addEventListener("click", () => openCoach(job));
+  $("#copyJobLink").onclick = () => ($("#jobLink").value.trim() ? copyLink($("#jobLink").value.trim()) : $("#jobLink").focus());
+  $("#linkForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const link = cleanLink($("#jobLink").value);
+    if (link === null) { toast("That doesn't look like a web address."); return; }
+    if (await attempt(() => source.updateJob(id, { source_url: link || null }), "Link saved.")) { $("#jobLink").value = link; d.source_url = link || null; refreshJobs(); }
+  };
   $$("#drawer [data-quickadd]").forEach((b) => (b.onclick = () => openAdd("skill")));
   $("#reviewJob")?.addEventListener("click", async (e) => {
     e.target.disabled = true;
@@ -331,6 +345,7 @@ function openAddJob() {
       <div class="seg" id="addSeg" role="tablist"><button class="on" data-m="paste" role="tab">Paste text</button><button data-m="link" role="tab">Link</button></div>
       <div class="field wide" style="margin-top:14px" id="addPaste"><label for="j_text">Job description</label><textarea id="j_text" rows="10" maxlength="60000" placeholder="Paste the full posting"></textarea></div>
       <div class="field wide hidden" style="margin-top:14px" id="addLink"><label for="j_url">Posting link</label><input id="j_url" type="url" maxlength="2000" placeholder="https://"><div class="help">Works for most job boards. Some sites block automated reading; you'll be asked to paste the text instead.</div></div>
+      <div class="field wide" style="margin-top:14px"><label for="j_apply">Application link (optional)</label><input id="j_apply" type="text" inputmode="url" maxlength="2000" placeholder="https://"><div class="help">Where you're applying. Shows on Applications so you can copy it.</div></div>
       <div class="savebar"><button class="btn primary" id="analyze">Review and score</button><button class="btn" id="saveRaw">Save without review</button><span class="note" id="analyzeNote"></span></div>
     </div>
     <div id="analysis"></div>`);
@@ -341,6 +356,12 @@ function openAddJob() {
     $("#addPaste").classList.toggle("hidden", mode !== "paste");
     $("#addLink").classList.toggle("hidden", mode !== "link");
   }));
+  // The application link, or false if it isn't a web address.
+  const applyLink = () => {
+    const link = cleanLink($("#j_apply").value);
+    if (link === null) { toast("That application link doesn't look like a web address."); $("#j_apply").focus(); return false; }
+    return link;
+  };
   const input = () => (mode === "link" ? { url: $("#j_url").value.trim() } : { text: $("#j_text").value.trim() });
 
   $("#analyze").onclick = async () => {
@@ -359,9 +380,11 @@ function openAddJob() {
       <div class="savebar"><button class="btn primary" id="saveNew">Save as In progress</button><button class="btn" id="skipNew">Not a fit, skip</button></div>`;
     $("#analysis").scrollIntoView({ behavior: "smooth", block: "start" });
     $("#saveNew").onclick = async () => {
+      const link = applyLink();
+      if (link === false) return;
       const fields = {
         company: $("#r_company").value, role_title: $("#r_role").value, location: rv.location || null,
-        source_url: rv.source_url || (mode === "link" ? body.url : null), jd_text: rv.jd_text,
+        source_url: link || rv.source_url || (mode === "link" ? body.url : null), jd_text: rv.jd_text,
         fit_score: rv.fit_score, odds_score: rv.odds_score, fit_breakdown: rv.fit_breakdown,
         pref_match: rv.pref_match, posting_facts: rv.posting_facts, strengths: rv.strengths, gaps: rv.gaps,
       };
@@ -380,7 +403,9 @@ function openAddJob() {
     $("#j_company").focus();
     $("#rawForm").onsubmit = async (e) => {
       e.preventDefault();
-      const fields = { company: $("#j_company").value, role_title: $("#j_role").value, jd_text: body.text || null, source_url: body.url || null };
+      const link = applyLink();
+      if (link === false) return;
+      const fields = { company: $("#j_company").value, role_title: $("#j_role").value, jd_text: body.text || null, source_url: link || body.url || null };
       const created = await attempt(() => source.createJob(fields), "Saved as In progress.");
       if (created) { await refreshJobs(); openJob(created.id); }
     };
@@ -391,7 +416,7 @@ function openAddJob() {
 
 function renderResumes() {
   const shown = docs.filter((d) => resFilter === "all" || (resFilter === "letter" ? d.kind === "letter" : d.source === resFilter && d.kind === "resume"));
-  const base = docs.filter((d) => d.source === "uploaded" && d.kind === "resume" && !d.job_id).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
+  const base = docs.filter((d) => ["uploaded", "built"].includes(d.source) && d.kind === "resume" && !d.job_id).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
   $("#reslist").innerHTML = shown.length ? shown.map((d) => {
     const job = jobs.find((j) => j.id === d.job_id);
     return `<div class="resrow"><div class="ico2">${d.kind === "letter" ? "LTR" : "CV"}</div>
@@ -400,6 +425,20 @@ function renderResumes() {
       <div class="btnrow"><button class="btn sm" data-open="${d.id}">Open</button></div></div>`;
   }).join("") : `<div class="notice">No documents here yet.${resFilter === "all" || resFilter === "uploaded" ? " Use Upload resume to add your base resume." : ""}</div>`;
   $$("#reslist [data-open]").forEach((b) => (b.onclick = () => openDoc(Number(b.dataset.open))));
+}
+
+async function editBase() {
+  const btn = $("#editBase");
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = "Opening…";
+  toast("Opening your base resume. The first time takes about 30 seconds.");
+  const base = await attempt(() => source.editableBase());
+  btn.disabled = false;
+  btn.textContent = label;
+  if (!base) return;
+  await refreshDocs();
+  openDoc(base.id);
 }
 
 async function refreshDocs() {
@@ -411,6 +450,7 @@ async function openDoc(id, backJobId) {
   const doc = await attempt(() => source.getDocument(id));
   if (!doc) return;
   const job = jobs.find((j) => j.id === (backJobId ?? doc.job_id));
+  const isBase = doc.kind === "resume" && doc.source === "built" && !doc.job_id;
   const back = job ? `<button class="btn sm" id="backJob" style="margin-top:16px">Back to ${esc(job.company)}</button>` : "";
 
   if (!doc.content) {
@@ -428,24 +468,28 @@ async function openDoc(id, backJobId) {
   openDrawer(`${head(`${doc.kind === "letter" ? "Cover letter" : "Resume"}${job ? ` · ${job.company}` : ""}`, doc.title, doc.file_name || "")}
     ${back}
     ${doc.sent ? `<div class="guard w"><b>This is the version you sent.</b> It is locked. Editing makes a new copy.</div>` : `<div id="checks"></div>`}
+    ${isBase ? `<div class="notice">This is your base resume. New resumes and cover letters start from what you save here. Drafts you already have don't change.</div>` : ""}
     <div class="toolbar2">
       ${doc.sent ? "" : `<button class="btn sm" data-cmd="bold" aria-label="Bold"><b>B</b></button><button class="btn sm" data-cmd="italic" aria-label="Italic"><i>I</i></button><button class="btn sm" data-cmd="insertUnorderedList">List</button>`}
       <span style="flex:1"></span>
       <button class="btn sm" id="saveDoc">${doc.sent ? "Edit as new copy" : "Save"}</button>
       <button class="btn sm" id="dlPdf">Download PDF</button>
       <button class="btn sm" id="dlWord">Download Word</button>
-      ${!doc.sent ? `<button class="btn primary sm" id="markSent">Mark as sent</button>` : ""}
+      ${!doc.sent && !isBase ? `<button class="btn primary sm" id="markSent">Mark as sent</button>` : ""}
     </div>
     <p class="soon" id="pages"></p>
     <div class="editor k-${doc.kind}" id="editor" contenteditable="${doc.sent ? "false" : "true"}" spellcheck="true" aria-label="Document editor">${renderDoc(doc.kind, doc.content)}</div>
     <p class="soon">Download PDF opens your browser's print dialog; choose Save as PDF. Edit any text in place, then Save.</p>`, true);
 
   // The same checks the server ran, re-run as you edit.
-  const evidence = evidenceNumbers(...(profile.facts || []).filter((f) => f.verified).map((f) => f.text));
+  const baseDoc = isBase ? doc : docs.find((d) => d.source === "built" && d.kind === "resume" && !d.job_id);
+  const baseText = baseDoc ? JSON.stringify(isBase ? doc.content : (await source.getDocument(baseDoc.id).catch(() => ({}))).content || "") : "";
+  const evidence = evidenceNumbers(...(profile.facts || []).filter((f) => f.verified).map((f) => f.text), baseText);
   const recheck = () => {
     const content = readDoc(doc.kind, $("#editor"), doc.content);
     if (!doc.sent) {
-      const issues = checkDraft(doc.kind, content, evidence);
+      // Numbers typed into the base resume are the owner's own source of truth.
+      const issues = checkDraft(doc.kind, content, isBase ? evidenceNumbers(JSON.stringify(content)) : evidence);
       $("#checks").innerHTML = issues.length
         ? `<div class="guard w"><b>Check before sending:</b><ul>${issues.map((i) => `<li>${esc(i.message)}</li>`).join("")}</ul></div>`
         : `<div class="guard"><b>Checks passed.</b></div>`;
@@ -1052,6 +1096,7 @@ function wire() {
   $("#addCancel").onclick = () => $("#addDlg").close();
   $("#pickUpload").onclick = openUpload;
   // From the Resumes tab: the same upload flow, on the Start page.
+  $("#editBase").onclick = editBase;
   $("#uploadResume").onclick = () => { go("start"); openUpload(); $("#startArea").scrollIntoView({ behavior: "smooth" }); };
   $("#pickSkills").onclick = openBuild;
   $("#signInBtn").onclick = openSignIn;

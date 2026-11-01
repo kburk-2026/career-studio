@@ -7,6 +7,9 @@ import { resumeDocx, letterDocx, toBuffer } from "../api/_lib/docx.js";
 import { undashAll, POST as generatePOST } from "../api/generate.js";
 import { GET as exportGET } from "../api/export.js";
 import { GET as documentsGET } from "../api/documents.js";
+import { POST as uploadPOST } from "../api/upload.js";
+import { baseBlock } from "../api/generate.js";
+import { cleanLink, linkSite } from "../public/js/format.js";
 import JSZip from "jszip";
 import { RESUME_SCHEMA, LETTER_SCHEMA, writerContent } from "../api/_lib/prompts.js";
 
@@ -156,4 +159,36 @@ test("drafts missing links pick them up from the profile; sent documents never c
   const zip = await JSZip.loadAsync(Buffer.from(await word.arrayBuffer()));
   const xml = await zip.file("word/document.xml").async("string");
   assert.ok(xml.includes("linkedin.com/in/x") && xml.includes(">Portfolio<"));
+});
+
+test("application links are cleaned to https or refused", () => {
+  assert.equal(cleanLink("  http://jobs.example.com/1 "), "https://jobs.example.com/1");
+  assert.equal(cleanLink("jobs.example.com/1"), "https://jobs.example.com/1");
+  assert.equal(cleanLink(""), "");
+  assert.equal(cleanLink("javascript:alert(1)"), null);
+  assert.equal(cleanLink("not a link"), null);
+  assert.equal(linkSite("https://www.jobs.example.com/a?b=1"), "jobs.example.com");
+});
+
+test("the writer gets standing feedback, marked as unable to add facts", () => {
+  const prompt = writerContent({ kind: "resume", posting: "p", company: "Acme", role: "PM", today: "Nov 1, 2026", notes: "Keep the summary short." });
+  assert.match(prompt, /<candidate_feedback>[\s\S]*never adds facts[\s\S]*Keep the summary short\.[\s\S]*<\/candidate_feedback>/);
+  assert.doesNotMatch(writerContent({ kind: "resume", posting: "p", company: "A", role: "B", today: "x" }), /candidate_feedback/);
+  assert.equal(cleanPrefs({ writer_notes: "note" }).writer_notes, "note");
+  assert.throws(() => cleanPrefs({ writer_notes: "x".repeat(4001) }));
+});
+
+test("the writer reads the edited base resume, and opening it never pays for a second copy", async () => {
+  const content = { ...resume, summary: "Edited summary with 42 programs." };
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith("/auth/v1/user")) return Response.json({ email: "owner@example.com" });
+    if (String(url).includes("/documents?")) return Response.json([{ id: 9, content, file_path: null }]);
+    throw new Error(`unexpected call: ${url}`);
+  };
+  const res = await uploadPOST(new Request("http://x/api/upload?base=1", { method: "POST", headers: { Authorization: "Bearer good" }, body: "{}" }));
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).id, 9);
+  const block = await baseBlock({}, { content });
+  assert.equal(block.type, "text");
+  assert.match(block.text, /<base_resume>[\s\S]*Edited summary with 42 programs/);
 });

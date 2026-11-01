@@ -21,6 +21,18 @@ export const normStatus = (s) => (s === "EMAILED" ? "APPLIED" : s);
 const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ESCAPES[c]);
 
+// A pasted address as a safe https link: adds or upgrades the scheme, and refuses
+// anything else.
+export function cleanLink(value) {
+  const u = String(value ?? "").trim().replace(/^http:\/\//i, "https://");
+  if (!u) return "";
+  const full = /^[a-z][a-z0-9+.-]*:/i.test(u) ? u : `https://${u}`;
+  return /^https:\/\/[^\s"<>]+$/i.test(full) ? full : null;
+}
+
+// Just the site name, for showing a long link in a narrow column.
+export const linkSite = (url) => String(url || "").replace(/^https:\/\/(www\.)?/i, "").split(/[/?#]/)[0];
+
 // Unknown dates stay blank rather than being guessed.
 export function formatDate(iso) {
   if (!iso) return "—";

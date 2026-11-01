@@ -105,7 +105,7 @@ export function demoSource() {
     async createJob(fields) {
       const id = nextId++;
       const status = fields.status || "IN_PROGRESS";
-      const row = { id, company: fields.company, role_title: fields.role_title, location: fields.location || "", status, applied_on: null, fit_score: fields.fit_score ?? null, odds_score: fields.odds_score ?? null, answer_count: 0, has_resume: false, has_cover_letter: false };
+      const row = { id, company: fields.company, role_title: fields.role_title, location: fields.location || "", status, applied_on: null, fit_score: fields.fit_score ?? null, odds_score: fields.odds_score ?? null, answer_count: 0, has_resume: false, has_cover_letter: false, source_url: fields.source_url || null };
       (await loadList()).jobs.unshift(row);
       details.set(id, {
         ...row, fictional: true, jd_text: fields.jd_text || "", source_url: fields.source_url || null,
@@ -200,6 +200,14 @@ export function demoSource() {
       const all = await loadDocs();
       const src = all.find((x) => x.id === id);
       const copy = { ...clone(src), id: nextId++, parent_id: id, sent: false, sent_at: null, title: `${src.title} (copy)`, created_at: new Date().toISOString() };
+      all.unshift(copy);
+      return clone(copy);
+    },
+    async editableBase() {
+      const all = await loadDocs();
+      const made = all.find((x) => x.source === "built" && !x.job_id && x.content);
+      if (made) return clone(made);
+      const copy = { ...clone(all.find((x) => x.kind === "resume" && x.content)), id: nextId++, job_id: null, source: "built", sent: false, sent_at: null, title: "Base resume (editable)", created_at: new Date().toISOString() };
       all.unshift(copy);
       return clone(copy);
     },
@@ -390,6 +398,7 @@ export function apiSource(getToken) {
     async getDocument(id) { return api(`documents?id=${id}`); },
     async saveDocument(id, fields) { return api(`documents?id=${id}`, { method: "PATCH", body: fields }); },
     async copyDocument(id) { return api(`documents?copy=${id}`, { method: "POST" }); },
+    async editableBase() { return api("upload?base=1", { method: "POST", body: {} }); },
     async markSent(id) { fresh(); return api(`documents?sent=${id}`, { method: "POST" }); },
     async documentFileUrl(id) { return (await api(`documents?id=${id}&file=1`)).url; },
     async reviewPosting(input) { return api("review", { method: "POST", body: input }); },

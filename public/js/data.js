@@ -398,7 +398,7 @@ export function apiSource(getToken) {
     async getDocument(id) { return api(`documents?id=${id}`); },
     async saveDocument(id, fields) { return api(`documents?id=${id}`, { method: "PATCH", body: fields }); },
     async copyDocument(id) { return api(`documents?copy=${id}`, { method: "POST" }); },
-    async editableBase() { return api("base", { method: "POST", body: {} }); },
+    async editableBase() { return api("upload?base=1", { method: "POST", body: {} }); },
     async markSent(id) { fresh(); return api(`documents?sent=${id}`, { method: "POST" }); },
     async documentFileUrl(id) { return (await api(`documents?id=${id}&file=1`)).url; },
     async reviewPosting(input) { return api("review", { method: "POST", body: input }); },

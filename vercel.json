@@ -35,9 +35,6 @@
     "api/answer.js": {
       "maxDuration": 120
     },
-    "api/base.js": {
-      "maxDuration": 120
-    },
     "api/upload.js": {
       "maxDuration": 120
     },

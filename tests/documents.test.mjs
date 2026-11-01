@@ -7,7 +7,7 @@ import { resumeDocx, letterDocx, toBuffer } from "../api/_lib/docx.js";
 import { undashAll, POST as generatePOST } from "../api/generate.js";
 import { GET as exportGET } from "../api/export.js";
 import { GET as documentsGET } from "../api/documents.js";
-import { POST as basePOST } from "../api/base.js";
+import { POST as uploadPOST } from "../api/upload.js";
 import { baseBlock } from "../api/generate.js";
 import { cleanLink, linkSite } from "../public/js/format.js";
 import JSZip from "jszip";
@@ -185,7 +185,7 @@ test("the writer reads the edited base resume, and opening it never pays for a s
     if (String(url).includes("/documents?")) return Response.json([{ id: 9, content, file_path: null }]);
     throw new Error(`unexpected call: ${url}`);
   };
-  const res = await basePOST(new Request("http://x/api/base", { method: "POST", headers: { Authorization: "Bearer good" }, body: "{}" }));
+  const res = await uploadPOST(new Request("http://x/api/upload?base=1", { method: "POST", headers: { Authorization: "Bearer good" }, body: "{}" }));
   assert.equal(res.status, 200);
   assert.equal((await res.json()).id, 9);
   const block = await baseBlock({}, { content });

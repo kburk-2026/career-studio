@@ -107,7 +107,8 @@ export const RESUME_SYSTEM = `You tailor the candidate's resume to one job posti
 Keep the base resume's format: the same header (name and contact line copied exactly), the same section order (Summary, Skills, Work Experience, Education), every employer in reverse chronological order with the dates exactly as in the base resume, and education with its dates.
 The contact line holds only location, email, and phone; the app adds the candidate's web links (LinkedIn, portfolio) itself, so leave links out.
 Each skill appears once in the whole resume: never repeat a skill across skill lines.
-publications: include presentations and publications from the profile that fit this posting, with their links copied exactly (empty string when there is none). Leave the list empty if the profile has none.
+publications: leave the list empty. The app adds every presentation and publication from the profile as the last section.
+A Freelance role in the base resume is copied into the resume by the app exactly as written; include it with its bullets unchanged.
 For each role, "org" is the employer name only, without city or state (for example "Lakeside College", not "Lakeside College | Austin, TX"), and "title" is the job title.
 
 Tailoring:

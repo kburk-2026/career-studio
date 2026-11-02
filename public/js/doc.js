@@ -107,7 +107,9 @@ export function dedupeSkills(skills = []) {
 // shows its short address, so it still reads correctly on paper and to an ATS.
 export function linksFromPrefs(prefs = {}) {
   const short = (url) => String(url || "").replace(/^https:\/\/(www\.)?/i, "").replace(/\/$/, "");
-  return [[short(prefs.linkedin_url), prefs.linkedin_url], ["Portfolio", prefs.portfolio_url], ["Website", prefs.website_url]]
+  // A site saved only in the Website field is the portfolio, so it is labeled that way.
+  const site = safeUrl(prefs.portfolio_url) ? "Website" : "Portfolio";
+  return [[short(prefs.linkedin_url), prefs.linkedin_url], ["Portfolio", prefs.portfolio_url], [site, prefs.website_url]]
     .filter(([, url]) => safeUrl(url)).map(([label, url]) => ({ label, url }));
 }
 

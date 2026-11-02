@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { checkDraft, evidenceNumbers } from "../public/js/checks.js";
 import { docText, wordCount } from "../public/js/doc.js";
 import { resumeDocx, letterDocx, toBuffer } from "../api/_lib/docx.js";
-import { undashAll, POST as generatePOST } from "../api/generate.js";
+import { undashAll, keepFixedRoles, profilePublications, POST as generatePOST } from "../api/generate.js";
 import { GET as exportGET } from "../api/export.js";
 import { GET as documentsGET } from "../api/documents.js";
 import { POST as uploadPOST } from "../api/upload.js";
@@ -93,6 +93,8 @@ test("each skill appears once across all skill lines", () => {
 test("document links come only from the profile and must be https", () => {
   assert.deepEqual(linksFromPrefs({ linkedin_url: "https://www.linkedin.com/in/x", portfolio_url: "http://insecure.example", website_url: "" }),
     [{ label: "linkedin.com/in/x", url: "https://www.linkedin.com/in/x" }]);
+  assert.deepEqual(linksFromPrefs({ website_url: "https://folio.example/me" }), [{ label: "Portfolio", url: "https://folio.example/me" }]);
+  assert.deepEqual(linksFromPrefs({ portfolio_url: "https://a.example", website_url: "https://b.example" }).map((l) => l.label), ["Portfolio", "Website"]);
   assert.throws(() => cleanUrl("javascript:alert(1)", "Link"), /https/);
   assert.equal(cleanUrl("https://example.com/talk", "Link"), "https://example.com/talk");
   assert.throws(() => cleanPrefs({ portfolio_url: "ftp://example.com" }));
@@ -191,4 +193,24 @@ test("the writer reads the edited base resume, and opening it never pays for a s
   const block = await baseBlock({}, { content });
   assert.equal(block.type, "text");
   assert.match(block.text, /<base_resume>[\s\S]*Edited summary with 42 programs/);
+});
+
+test("the Freelance role is copied from the base resume word for word", () => {
+  const base = [
+    { org: "Lakeside College", title: "Director", dates: "2020 - 2024", bullets: ["Base bullet"] },
+    { org: "Freelance (Self-Employed) | Austin, TX", title: "Early Career Work", dates: "2002 - 2022", bullets: ["Tutor, 2009 – 2014, NORTH SCHOOL", "Teacher, 2002 - 2006, SOUTH SCHOOL"] },
+  ];
+  const fixed = { org: "Freelance (Self-Employed)", title: "Early Career Work", dates: "2002 - 2022", bullets: ["Tutor, 2009 - 2014, NORTH SCHOOL", "Teacher, 2002 - 2006, SOUTH SCHOOL"] };
+  const written = [{ org: "Lakeside College", title: "Director", dates: "2020 - 2024", bullets: ["Tailored"] }];
+  assert.deepEqual(keepFixedRoles([...written, { org: "Freelance", title: "x", dates: "", bullets: ["shortened"] }], base), [...written, fixed]);
+  assert.deepEqual(keepFixedRoles(written, base), [...written, fixed]);
+  assert.deepEqual(keepFixedRoles(written, []), written);
+});
+
+test("presentations and publications come from the profile with exact links", () => {
+  assert.deepEqual(profilePublications([
+    { kind: "skill", text: "Canvas" },
+    { kind: "publication", text: "A talk – on video", url: "https://example.com/talk" },
+    { kind: "publication", text: "No link", url: "javascript:x" },
+  ]), [{ text: "A talk - on video", url: "https://example.com/talk" }, { text: "No link", url: "" }]);
 });

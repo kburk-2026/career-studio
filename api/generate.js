@@ -20,6 +20,21 @@ export function undashAll(value) {
   return value;
 }
 
+// Roles the owner keeps word for word (Freelance and early career work) come
+// from the base resume, never the model. They replace any version the model wrote.
+const isFixedRole = (r) => /^freelance\b/i.test(String(r?.org || "").trim());
+export function keepFixedRoles(roles = [], baseRoles = []) {
+  const fixed = undashAll(baseRoles.filter(isFixedRole)).map((r) => ({ ...r, org: r.org.split("|")[0].trim() }));
+  if (!fixed.length) return roles;
+  const at = roles.findIndex(isFixedRole);
+  const rest = roles.filter((r) => !isFixedRole(r));
+  return at < 0 ? [...rest, ...fixed] : [...rest.slice(0, at), ...fixed, ...rest.slice(at)];
+}
+
+// Every confirmed presentation and publication, with its link exactly as saved.
+export const profilePublications = (facts) => facts.filter((f) => f.kind === "publication")
+  .map((f) => ({ text: undash(f.text), url: /^https:\/\//i.test(f.url || "") ? f.url : "" }));
+
 const fileSafe = (s) => String(s || "").replace(/[^A-Za-z0-9]+/g, "").slice(0, 40) || "Document";
 
 // The newest resume not tied to a job: an upload, or the editable copy of one.
@@ -82,6 +97,10 @@ export const POST = handle(async (request) => {
   const [prefRow] = await rest(session, "profile_prefs?select=linkedin_url,portfolio_url,website_url");
   draft.links = linksFromPrefs(prefRow);
   if (draft.skills) draft.skills = dedupeSkills(draft.skills);
+  if (kind === "resume") {
+    draft.roles = keepFixedRoles(draft.roles, base.content?.roles);
+    draft.publications = profilePublications(facts);
+  }
   const flags = checkDraft(kind, draft, evidenceNumbers(...facts.map((f) => f.text), base.content ? JSON.stringify(base.content) : ""));
   const label = kind === "letter" ? "Cover letter" : "Resume";
   const name = fileSafe((draft.name || "").split(/\s+/).map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join("_"));

@@ -1,5 +1,5 @@
 import { pickSource } from "./data.js";
-import { STATUS, STATUS_KEYS, LIVE_STATUSES, esc, formatDate, cleanLink, linkSite, filterJobs, computeStats, RUBRIC, profileStrength, similarity } from "./format.js";
+import { STATUS, STATUS_KEYS, LIVE_STATUSES, DECLINED, normStatus, esc, formatDate, cleanLink, linkSite, filterJobs, computeStats, RUBRIC, profileStrength, similarity } from "./format.js";
 import { renderDoc, readDoc } from "./doc.js";
 import { checkDraft, evidenceNumbers } from "./checks.js";
 import { loadConfig, consumeRedirect, hasSession, getAccessToken, sendMagicLink, signOut } from "./auth.js";
@@ -21,12 +21,20 @@ const store = {
   set(key, value) { try { localStorage.setItem(key, value); return true; } catch { return false; } },
 };
 
-function toast(text) {
+function toast(text, action) {
   const el = $("#toast");
   el.textContent = text;
+  if (action) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "toast-act";
+    b.textContent = action.label;
+    b.onclick = () => { el.classList.add("hidden"); action.run(); };
+    el.append(" ", b);
+  }
   el.classList.remove("hidden");
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => el.classList.add("hidden"), 3000);
+  toast.timer = setTimeout(() => el.classList.add("hidden"), action ? 6000 : 3000);
 }
 
 // Runs an action, reporting failures instead of leaving the UI half-updated.
@@ -55,28 +63,62 @@ function renderFigures() {
     [s.interviewing, "Interviewing", true],
     [s.offers, "Offers"],
     [s.avgFit ?? "--", "Average fit"],
-  ].map(([n, label, hot]) => `<div class="fig"><b class="${hot && n ? "hot" : ""}">${n}</b><span>${label}</span></div>`).join("");
+  ].map(([n, label, hot]) => `<div class="fig"><b class="${hot && n ? "hot" : ""}">${n}</b><span>${label}</span></div>`).join("")
+    + (s.declined ? `<button type="button" class="fig-mini" id="declinedLink" aria-controls="declinedBox"><b>${s.declined}</b> declined</button>` : "");
+  const link = $("#declinedLink");
+  if (link) link.onclick = () => {
+    const box = $("#declinedBox");
+    box.open = true;
+    box.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 }
 
-function renderRows() {
-  const rows = filterJobs(jobs, { query: $("#search").value, status: $("#statusFilter").value, sort: $("#sort").value });
-  $("#count").textContent = `${rows.length} of ${jobs.length} shown`;
-  $("#rows").innerHTML = rows.length
-    ? rows.map((j) => `<tr data-id="${j.id}" tabindex="0">
+const rowHtml = (j) => `<tr data-id="${j.id}" tabindex="0">
         <td><div class="company">${esc(j.company)}</div><div class="role">${esc(j.role_title)}</div></td>
         <td>${segs(j.fit_score)}<span class="fitnum">${j.fit_score ?? "--"}</span></td>
         <td class="date">${formatDate(j.applied_on)}</td>
         <td>${statusSelect(j)}</td>
         <td class="applink">${j.source_url ? `<a href="${esc(j.source_url)}" target="_blank" rel="noopener noreferrer" title="${esc(j.source_url)}">${esc(linkSite(j.source_url))}</a><button class="btn sm" data-copy="${esc(j.source_url)}" aria-label="Copy application link for ${esc(j.company)}">Copy</button>` : `<span class="none">Add in job</span>`}</td>
-        <td class="qcount"><b>${j.answer_count || 0}</b>${j.answer_count === 1 ? "answer" : "answers"}</td></tr>`).join("")
-    : `<tr><td colspan="6" class="empty">No applications match. Use Add a job to start one.</td></tr>`;
-  $$("#rows tr[data-id]").forEach((tr) => {
+        <td class="qcount"><b>${j.answer_count || 0}</b>${j.answer_count === 1 ? "answer" : "answers"}</td></tr>`;
+
+function wireRows(body) {
+  $$("tr[data-id]", body).forEach((tr) => {
     const open = (e) => { if (!e.target.closest("select,a,button")) openJob(Number(tr.dataset.id)); };
     tr.addEventListener("click", open);
     tr.addEventListener("keydown", (e) => { if (e.key === "Enter") open(e); });
   });
-  $$("#rows .statusselect").forEach((s) => s.addEventListener("change", () => changeStatus(Number(s.dataset.job), s.value)));
-  $$("#rows [data-copy]").forEach((b) => (b.onclick = () => copyLink(b.dataset.copy)));
+  $$(".statusselect", body).forEach((s) => s.addEventListener("change", () => changeStatus(Number(s.dataset.job), s.value)));
+  $$("[data-copy]", body).forEach((b) => (b.onclick = () => copyLink(b.dataset.copy)));
+}
+
+function renderRows() {
+  const query = $("#search").value, sort = $("#sort").value, filter = $("#statusFilter").value;
+  const rows = filterJobs(jobs, { query, status: filter === "all" ? "active" : filter, sort });
+  const activeTotal = filterJobs(jobs, { status: "active" }).length;
+  $("#count").textContent = `${rows.length} of ${activeTotal} shown`;
+  $("#rows").innerHTML = rows.length
+    ? rows.map(rowHtml).join("")
+    : `<tr><td colspan="6" class="empty">No applications match. Use Add a job to start one.</td></tr>`;
+  wireRows($("#rows"));
+
+  // Declined jobs get their own collapsed section, with the same search and sort.
+  const declined = filterJobs(jobs, { query, status: DECLINED, sort });
+  const box = $("#declinedBox");
+  box.classList.toggle("hidden", !declined.length);
+  $("#declinedN").textContent = declined.length;
+  $("#declinedNames").textContent = declined.map((j) => j.company).join(", ");
+  $("#declinedRows").innerHTML = declined.map(rowHtml).join("");
+  wireRows($("#declinedRows"));
+  alignDeclined();
+}
+
+// The declined table copies the main table's column widths so the two line up.
+function alignDeclined() {
+  const box = $("#declinedBox");
+  if (box.classList.contains("hidden") || !box.open) return;
+  // Columns hidden at narrow widths take no slot, so copy the visible ones in order.
+  const widths = $$("th", $("#rows").closest("table")).map((th) => th.getBoundingClientRect().width).filter((w) => w > 0);
+  $$("col", box).forEach((col, i) => { col.style.width = `${widths[i] ?? 0}px`; });
 }
 
 async function copyLink(url) {
@@ -89,8 +131,16 @@ async function refreshJobs() {
   renderRows();
 }
 
-async function changeStatus(id, status) {
-  const ok = await attempt(() => source.updateJob(id, { status }), `Status set to ${STATUS[status]}.`);
+async function changeStatus(id, status, { undo = true } = {}) {
+  const job = jobs.find((j) => j.id === id);
+  const prev = job ? normStatus(job.status) : null;
+  const crosses = prev && (prev === DECLINED) !== (status === DECLINED);
+  const ok = await attempt(() => source.updateJob(id, { status }), crosses ? null : `Status set to ${STATUS[status]}.`);
+  if (ok !== undefined && crosses) {
+    const demo = source.mode === "demo" ? " (demo, not saved)" : "";
+    const text = status === DECLINED ? `${job.company} moved to Declined${demo}.` : `${job.company} is back on the list${demo}.`;
+    toast(text, undo ? { label: "Undo", run: () => changeStatus(id, prev, { undo: false }) } : null);
+  }
   await refreshJobs();
   if (ok && $("#drawerBg").classList.contains("open") && $("#drawerStatus")?.dataset.job === String(id)) openJob(id);
 }
@@ -1069,7 +1119,10 @@ function go(view) {
 
 function wire() {
   $$(".nav button").forEach((b) => (b.onclick = () => go(b.dataset.view)));
-  $("#statusFilter").innerHTML = `<option value="all">All statuses</option>` + STATUS_KEYS.map((k) => `<option value="${k}">${STATUS[k]}</option>`).join("");
+  $("#statusFilter").innerHTML = `<option value="all">All statuses</option>` + STATUS_KEYS.filter((k) => k !== DECLINED).map((k) => `<option value="${k}">${STATUS[k]}</option>`).join("");
+  $("#declinedBox").open = store.get("declined_open") === "1";
+  $("#declinedBox").addEventListener("toggle", () => { store.set("declined_open", $("#declinedBox").open ? "1" : "0"); alignDeclined(); });
+  window.addEventListener("resize", () => { cancelAnimationFrame(alignDeclined.raf); alignDeclined.raf = requestAnimationFrame(alignDeclined); });
   $("#search").addEventListener("input", renderRows);
   $("#statusFilter").addEventListener("change", renderRows);
   $("#sort").addEventListener("change", renderRows);

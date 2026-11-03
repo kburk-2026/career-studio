@@ -14,6 +14,8 @@ export const STATUS_KEYS = Object.keys(STATUS);
 // Everything except In progress has gone to an employer.
 export const SENT_STATUSES = new Set(STATUS_KEYS.filter((s) => s !== "IN_PROGRESS"));
 export const LIVE_STATUSES = new Set(["INTERVIEWING", "INTERVIEW_DONE", "OFFER"]);
+// Declined jobs live in their own section below the main list.
+export const DECLINED = "EMPLOYER_REJECTED";
 
 // The old tracker's EMAILED means Applied.
 export const normStatus = (s) => (s === "EMAILED" ? "APPLIED" : s);
@@ -51,7 +53,7 @@ export function filterJobs(jobs, { query = "", status = "all", sort = "date" } =
   const out = jobs.filter(
     (j) =>
       STATUS[normStatus(j.status)] &&
-      (status === "all" || normStatus(j.status) === status) &&
+      (status === "all" || (status === "active" ? normStatus(j.status) !== DECLINED : normStatus(j.status) === status)) &&
       (!q || `${j.company} ${j.role_title}`.toLowerCase().includes(q)),
   );
   const bySort = {

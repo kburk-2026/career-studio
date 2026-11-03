@@ -32,6 +32,15 @@ test("filters by status (EMAILED counts as Applied), search, and fit", () => {
   assert.deepEqual(filterJobs(jobs, { sort: "fit" }).map((j) => j.id), [2, 5, 1, 3, 6]);
 });
 
+test("active hides employer declines; declined lists only them", () => {
+  const active = filterJobs(jobs, { status: "active" });
+  const declined = filterJobs(jobs, { status: "EMPLOYER_REJECTED" });
+  assert.ok(declined.length > 0);
+  assert.ok(active.every((j) => j.status !== "EMPLOYER_REJECTED"));
+  assert.ok(declined.every((j) => j.status === "EMPLOYER_REJECTED"));
+  assert.equal(active.length + declined.length, filterJobs(jobs).length);
+});
+
 test("stats separate sent applications from in-progress ones", () => {
   assert.deepEqual(computeStats(jobs), { submitted: 4, inProgress: 1, interviewing: 1, offers: 0, declined: 1, avgFit: 80 });
   assert.equal(computeStats([]).avgFit, null);

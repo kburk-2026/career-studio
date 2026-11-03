@@ -48,6 +48,25 @@ h1{font-family:var(--serif);font-weight:400;font-size:56px;line-height:1;margin:
 .fig b{display:block;font-family:var(--serif);font-weight:400;font-size:64px;line-height:1}
 .fig b.hot{color:var(--lime)}
 .fig span{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--dim)}
+.figures{grid-template-columns:repeat(4,1fr) auto}
+.fig:nth-child(4){border-right:0}
+.fig-mini{align-self:end;margin:0 0 14px 12px;padding:4px 8px;background:none;border:1px solid transparent;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--orange-text,var(--orange));cursor:pointer;white-space:nowrap}
+.fig-mini b{margin-right:4px}
+.fig-mini:hover,.fig-mini:focus-visible{border-color:currentColor}
+
+/* Declined section: collapsed under the main list */
+.declined{margin-top:28px;border-top:1px solid var(--faint)}
+.declined summary{list-style:none;cursor:pointer;display:flex;align-items:baseline;gap:12px;padding:14px 10px}
+.declined summary::-webkit-details-marker{display:none}
+.declined .chev{font-family:var(--mono);color:var(--dim);transition:transform .15s}
+.declined[open] .chev{transform:rotate(90deg)}
+.dl-label{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--orange-text,var(--orange))}
+.dl-names{font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.declined[open] .dl-names{display:none}
+.declined-table{table-layout:fixed}
+.declined-table tr td{opacity:.75}
+.declined-table tr:hover td,.declined-table tr:focus-within td{opacity:1}
+.toast-act{background:none;border:0;padding:0 0 0 10px;font:inherit;color:inherit;text-decoration:underline;cursor:pointer}
 
 /* Applications table */
 .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
@@ -234,6 +253,7 @@ td:nth-child(2),.date,.qcount{white-space:nowrap}
   h1{font-size:40px}
   .cmd{flex-direction:column;align-items:stretch}
   .figures{grid-template-columns:1fr 1fr}.fig{padding:12px 14px;border-bottom:1px solid #f7f1d555}.fig:nth-child(odd){padding-left:0}.fig:nth-child(2){border-right:0}.fig b{font-size:46px}
+  .fig:nth-child(4){border-right:0}.fig-mini{grid-column:1/-1;justify-self:start;margin:8px 0 10px}
   th:nth-child(3),td:nth-child(3),th:nth-child(5),td:nth-child(5),th:nth-child(6),td:nth-child(6){display:none}
   td{padding:12px 8px}.segs{display:none}.fitnum{margin-left:0}
   table{table-layout:fixed}th:nth-child(1){width:auto}th:nth-child(2){width:44px}th:nth-child(4){width:128px}

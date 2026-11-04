@@ -98,6 +98,11 @@ export const POST = handle(async (request) => {
   draft.links = linksFromPrefs(prefRow);
   if (draft.skills) draft.skills = dedupeSkills(draft.skills);
   if (kind === "resume") {
+    // The headline and early career lines are the base resume's own words, never the model's.
+    if (base.content) {
+      draft.headline = base.content.headline || "";
+      draft.early_career = base.content.early_career || [];
+    }
     draft.roles = keepFixedRoles(draft.roles, base.content?.roles);
     draft.publications = profilePublications(facts);
   }

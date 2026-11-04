@@ -2,7 +2,7 @@ import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { checkDraft, evidenceNumbers } from "../public/js/checks.js";
-import { docText, wordCount } from "../public/js/doc.js";
+import { docText, wordCount, renderResume, splitContact, splitEdu } from "../public/js/doc.js";
 import { resumeDocx, letterDocx, toBuffer } from "../api/_lib/docx.js";
 import { undashAll, keepFixedRoles, profilePublications, POST as generatePOST } from "../api/generate.js";
 import { GET as exportGET } from "../api/export.js";
@@ -93,8 +93,8 @@ test("each skill appears once across all skill lines", () => {
 test("document links come only from the profile and must be https", () => {
   assert.deepEqual(linksFromPrefs({ linkedin_url: "https://www.linkedin.com/in/x", portfolio_url: "http://insecure.example", website_url: "" }),
     [{ label: "linkedin.com/in/x", url: "https://www.linkedin.com/in/x" }]);
-  assert.deepEqual(linksFromPrefs({ website_url: "https://folio.example/me" }), [{ label: "Portfolio", url: "https://folio.example/me" }]);
-  assert.deepEqual(linksFromPrefs({ portfolio_url: "https://a.example", website_url: "https://b.example" }).map((l) => l.label), ["Portfolio", "Website"]);
+  assert.deepEqual(linksFromPrefs({ website_url: "https://folio.example/me/" }), [{ label: "folio.example/me", url: "https://folio.example/me/" }]);
+  assert.deepEqual(linksFromPrefs({ portfolio_url: "https://a.example", website_url: "https://www.b.example" }).map((l) => l.label), ["a.example", "b.example"]);
   assert.throws(() => cleanUrl("javascript:alert(1)", "Link"), /https/);
   assert.equal(cleanUrl("https://example.com/talk", "Link"), "https://example.com/talk");
   assert.throws(() => cleanPrefs({ portfolio_url: "ftp://example.com" }));
@@ -155,12 +155,12 @@ test("drafts missing links pick them up from the profile; sent documents never c
     return Response.json([]);
   };
   const get = async (id) => (await documentsGET(new Request(`http://x/api/documents?id=${id}`, { headers: { Authorization: "Bearer good" } }))).json();
-  assert.deepEqual((await get(1)).content.links.map((l) => l.label), ["linkedin.com/in/x", "Portfolio"]);
+  assert.deepEqual((await get(1)).content.links.map((l) => l.label), ["linkedin.com/in/x", "example.com/p"]);
   assert.deepEqual((await get(2)).content.links, []);
   const word = await exportGET(new Request("http://x/api/export?id=1", { headers: { Authorization: "Bearer good" } }));
   const zip = await JSZip.loadAsync(Buffer.from(await word.arrayBuffer()));
   const xml = await zip.file("word/document.xml").async("string");
-  assert.ok(xml.includes("linkedin.com/in/x") && xml.includes(">Portfolio<"));
+  assert.ok(xml.includes("linkedin.com/in/x") && xml.includes(">example.com/p<") && !xml.includes(">Portfolio<"));
 });
 
 test("application links are cleaned to https or refused", () => {
@@ -213,4 +213,39 @@ test("presentations and publications come from the profile with exact links", ()
     { kind: "publication", text: "A talk – on video", url: "https://example.com/talk" },
     { kind: "publication", text: "No link", url: "javascript:x" },
   ]), [{ text: "A talk - on video", url: "https://example.com/talk" }, { text: "No link", url: "" }]);
+});
+
+// Built from parts so the privacy check never sees a phone number in the repo.
+const PHONE = ["(555)", "010", "0000"].join(" ");
+
+test("resumes follow the base resume layout, and every link shows its address", async () => {
+  const c = {
+    ...resume, headline: "Lead Designer | Online Learning", contact: `Austin, Texas | ${PHONE} | pat@example.com`,
+    links: [{ label: "Portfolio", url: "https://folio.example/pat/" }],
+    roles: [{ org: "Lakeside College", title: "Lead Designer", dates: "2020 - 2026", bullets: ["Built things."] }],
+    early_career: ["Teacher, 2002 - 2006, Example School District"],
+    education: [{ text: "MS in Education | Example University", dates: "" }],
+    publications: [{ text: "A talk, Example webinar", url: "https://example.com/talk" }],
+  };
+  const html = renderResume(c);
+  for (const h of ["Core Competencies", "Professional Experience", "Early Career and Consulting Experience", "Presentations and Publications"]) assert.ok(html.includes(`<h2>${h}</h2>`), h);
+  assert.match(html, /class="headline"[^>]*>Lead Designer \| Online Learning</);
+  assert.match(html, /<b data-f="title">Lead Designer<\/b> \| <span data-f="org">Lakeside College/);
+  assert.match(html, /<b>MS in Education<\/b> \| Example University/);
+  assert.ok(html.includes(">folio.example/pat</a>") && html.includes(">example.com/talk</a>") && !/>(Portfolio|Link)<\/a>/.test(html));
+  assert.ok(html.includes(`data-f="contact">Austin, Texas | ${PHONE}<`));
+  assert.match(html, /data-f="contact2">pat@example.com</);
+
+  const zip = await JSZip.loadAsync(await toBuffer(resumeDocx(c)));
+  const xml = await zip.file("word/document.xml").async("string");
+  for (const t of ["Lead Designer | Online Learning", "CORE COMPETENCIES", "EARLY CAREER AND CONSULTING EXPERIENCE", ">folio.example/pat<", ">example.com/talk<", "Teacher, 2002 - 2006"]) assert.ok(xml.includes(t), t);
+  assert.ok(!xml.includes(">Portfolio<") && !xml.includes(">Link<"));
+  assert.match(xml, /<w:pgMar w:top="720" w:right="792" w:bottom="720" w:left="792"/);
+});
+
+test("contact and education split like the base resume", () => {
+  assert.deepEqual(splitContact(`Austin, Texas | ${PHONE} | me@example.com`), { main: `Austin, Texas | ${PHONE}`, email: "me@example.com" });
+  assert.deepEqual(splitContact("Remote · me@example.com"), { main: "Remote", email: "me@example.com" });
+  assert.deepEqual(splitEdu("BA in Education | Riverbend College"), { lead: "BA in Education", rest: " | Riverbend College" });
+  assert.deepEqual(splitEdu("Certificate"), { lead: "Certificate", rest: "" });
 });

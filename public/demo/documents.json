@@ -42,11 +42,11 @@
         ],
         "education": [
           {
-            "text": "MEd, Instructional Design and Technology, Lakeview State University",
+            "text": "MEd, Instructional Design and Technology | Lakeview State University",
             "dates": ""
           },
           {
-            "text": "BA, English, Riverbend College",
+            "text": "BA, English | Riverbend College",
             "dates": ""
           }
         ],
@@ -65,6 +65,11 @@
             "text": "Review checklists that designers actually use, regional online learning conference",
             "url": "https://example.com/talk"
           }
+        ],
+        "headline": "Lead Instructional Designer | Online Learning and Course Quality",
+        "early_career": [
+          "Course Designer, 2015 - 2018, Riverbend College",
+          "English Teacher, 2011 - 2015, Pine Hollow School District"
         ]
       }
     },

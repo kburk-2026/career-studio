@@ -491,6 +491,29 @@ async function editBase() {
   openDoc(base.id);
 }
 
+// Swaps in a new base resume file: stores it, makes the editable copy that every
+// new resume and cover letter starts from, then lists what it says so the owner
+// can add anything new to the profile. Existing drafts and sent documents stay as they are.
+async function replaceBase(file) {
+  if (!file) return;
+  if (!confirm(`Replace your base resume with "${file.name}"?\n\nNew resumes and cover letters will copy this file's format and content. Drafts and documents you already sent don't change.`)) return;
+  const btn = $("#replaceBase");
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Replacing…";
+  toast("Reading your new resume. This takes about a minute.");
+  const out = await attempt(() => source.uploadResume(file));
+  const base = out && await attempt(() => source.editableBase(), "Base resume replaced.");
+  btn.disabled = false;
+  btn.textContent = label;
+  await refreshDocs();
+  if (!out) return;
+  go("start");
+  openUpload();
+  $("#upStatus").innerHTML = `<div class="notice">${base ? `Your base resume is now ${esc(file.name)}. New resumes and cover letters copy its format. Use Edit base resume to change it.` : `${esc(file.name)} was uploaded, but its editable copy wasn't made. Use Edit base resume to try again.`} Below is what it says: tick anything new to add to your profile, or leave this page.</div>`;
+  showExtracted(out.extracted);
+}
+
 async function refreshDocs() {
   docs = await source.listDocuments().catch(() => []);
   renderResumes();
@@ -1150,6 +1173,8 @@ function wire() {
   $("#pickUpload").onclick = openUpload;
   // From the Resumes tab: the same upload flow, on the Start page.
   $("#editBase").onclick = editBase;
+  $("#replaceBase").onclick = () => $("#replaceFile").click();
+  $("#replaceFile").onchange = (e) => { const file = e.target.files[0]; e.target.value = ""; replaceBase(file); };
   $("#uploadResume").onclick = () => { go("start"); openUpload(); $("#startArea").scrollIntoView({ behavior: "smooth" }); };
   $("#pickSkills").onclick = openBuild;
   $("#signInBtn").onclick = openSignIn;

@@ -1,18 +1,19 @@
 // Resume and cover-letter templates.
 //
 // Documents are stored as structured content and rendered into a locked,
-// single-column, ATS-friendly layout (ported from JobHuntAgent's
-// resume_base.html: same section order, sizes, and no tables). Each editable
-// piece carries a data-f attribute so edits read back into structure.
+// single-column, ATS-friendly layout that mirrors the owner's base resume
+// (Calibri, navy headings with a rule, right-aligned dates, no tables). Each
+// editable piece carries a data-f attribute so edits read back into structure.
 //
-// resume: { name, contact, links: [{ label, url }], summary, skills: [{ label, items }],
-//           roles: [{ org, title, dates, bullets: [] }],
+// resume: { name, headline, contact, links: [{ label, url }], summary, skills: [{ label, items }],
+//           roles: [{ org, title, dates, bullets: [] }], early_career: [],
 //           education: [{ text, dates }], publications: [{ text, url }] }
 // letter: { name, contact, links, date, recipient, subject, greeting,
 //           paragraphs: [], closing, signature }
 //
 // Links come from the owner's profile, not the model, and are not edited in
-// the document; they carry through to print and Word unchanged.
+// the document. Every link shows its own address as the visible text, so the
+// address survives on paper and in resume screeners that drop hyperlinks.
 
 import { esc } from "./format.js";
 
@@ -20,30 +21,59 @@ const li = (items) => (items || []).map((x) => `<li>${esc(x)}</li>`).join("") ||
 const eduItem = (e) => (typeof e === "string" ? { text: e, dates: "" } : e || {});
 const safeUrl = (u) => (/^https:\/\/[^\s"<>]+$/i.test(u || "") ? u : "");
 
+// An address as it should read on the page: no scheme, no www, no trailing slash.
+export const shortUrl = (url) => String(url || "").replace(/^https:\/\/(www\.)?/i, "").replace(/\/$/, "");
+
+// The base resume's two contact lines: location and phone, then email and web links.
+export function splitContact(contact) {
+  const parts = String(contact || "").split(/\s*[|·•]\s*/).map((x) => x.trim()).filter(Boolean);
+  return { main: parts.filter((p) => !p.includes("@")).join(" | "), email: parts.filter((p) => p.includes("@")).join(" | ") };
+}
+
+// "Degree | School" shows the degree in bold, like the base resume.
+export function splitEdu(text) {
+  const at = String(text || "").indexOf(" | ");
+  return at < 0 ? { lead: String(text || ""), rest: "" } : { lead: text.slice(0, at), rest: text.slice(at) };
+}
+
+const anchor = (url, label) => `<a href="${esc(url)}" contenteditable="false" target="_blank" rel="noopener noreferrer">${esc(label || shortUrl(url))}</a>`;
+const SEP = ` <span class="sep" contenteditable="false">|</span> `;
+
 function contactLine(c) {
   const links = (c.links || []).filter((l) => safeUrl(l.url));
-  return `<p class="contact"><span data-f="contact">${esc(c.contact)}</span>${links.map((l) =>
-    ` <span class="sep" contenteditable="false">|</span> <a href="${esc(l.url)}" contenteditable="false" target="_blank" rel="noopener noreferrer">${esc(l.label)}</a>`).join("")}</p>`;
+  return `<p class="contact"><span data-f="contact">${esc(c.contact)}</span>${links.map((l) => `${SEP}${anchor(l.url, shortUrl(l.url))}`).join("")}</p>`;
+}
+
+function resumeContact(c) {
+  const { main, email } = splitContact(c.contact);
+  const links = (c.links || []).filter((l) => safeUrl(l.url)).map((l) => anchor(l.url, shortUrl(l.url)));
+  const second = [email ? `<span data-f="contact2">${esc(email)}</span>` : "", ...links].filter(Boolean);
+  return `<p class="contact"><span data-f="contact">${esc(main)}</span></p>
+${second.length ? `<p class="contact">${second.join(SEP)}</p>` : ""}`;
 }
 
 export function renderResume(c = {}) {
   const pubs = c.publications || [];
+  const early = c.early_career || [];
   return `<div class="doc resume">
 <p class="name" data-f="name">${esc(c.name)}</p>
-${contactLine(c)}
+${c.headline ? `<p class="headline" data-f="headline">${esc(c.headline)}</p>` : ""}
+${resumeContact(c)}
 <h2>Summary</h2>
 <p class="summary" data-f="summary">${esc(c.summary)}</p>
-<h2>Skills</h2>
+<h2>Core Competencies</h2>
 ${(c.skills || []).map((s) => `<p class="skill" data-skill><b data-f="label">${esc(s.label)}</b>: <span data-f="items">${esc(s.items)}</span></p>`).join("\n")}
-<h2>Work Experience</h2>
+<h2>Professional Experience</h2>
 ${(c.roles || []).map((r) => `<div class="job" data-role>
-<div class="row"><span class="left"><span data-f="org">${esc(r.org)}</span> - <span data-f="title">${esc(r.title)}</span></span><span class="right" data-f="dates">${esc(r.dates)}</span></div>
+<div class="row"><span class="left"><b data-f="title">${esc(r.title)}</b> | <span data-f="org">${esc(r.org)}</span></span><span class="right" data-f="dates">${esc(r.dates)}</span></div>
 <ul data-f="bullets">${li(r.bullets)}</ul>
 </div>`).join("\n")}
+${early.length ? `<h2>Early Career and Consulting Experience</h2>
+<ul data-f="early">${li(early)}</ul>` : ""}
 <h2>Education</h2>
-${(c.education || []).map(eduItem).map((e) => `<div class="row" data-edu><span class="left" data-f="text">${esc(e.text)}</span><span class="right" data-f="dates">${esc(e.dates)}</span></div>`).join("\n")}
+${(c.education || []).map(eduItem).map((e) => { const { lead, rest } = splitEdu(e.text); return `<div class="row" data-edu><span class="left" data-f="text"><b>${esc(lead)}</b>${esc(rest)}</span><span class="right" data-f="dates">${esc(e.dates)}</span></div>`; }).join("\n")}
 ${pubs.length ? `<h2>Presentations and Publications</h2>
-<ul data-f="publications">${pubs.map((p) => `<li><span data-f="pubtext">${esc(p.text)}</span>${safeUrl(p.url) ? ` <a href="${esc(p.url)}" contenteditable="false" target="_blank" rel="noopener noreferrer">Link</a>` : ""}</li>`).join("")}</ul>` : ""}
+<div data-f="publications">${pubs.map((p) => `<p class="pub" data-pub><span data-f="pubtext">${esc(p.text)}</span>${safeUrl(p.url) ? `: ${anchor(p.url)}` : ""}</p>`).join("")}</div>` : ""}
 </div>`;
 }
 
@@ -77,10 +107,11 @@ export function readDoc(kind, root, prev = {}) {
       closing: f("closing"), signature: f("signature"),
     };
   }
-  const pubItems = [...root.querySelectorAll('[data-f="publications"] li')];
+  const pubItems = [...root.querySelectorAll('[data-f="publications"] [data-pub], [data-f="publications"] li')];
   return {
     name: f("name"),
-    contact: f("contact"),
+    headline: f("headline"),
+    contact: [f("contact"), f("contact2")].filter(Boolean).join(" | "),
     links: prev.links || [],
     summary: f("summary"),
     skills: [...root.querySelectorAll("[data-skill]")].map((s) => ({ label: f("label", s), items: f("items", s) })),
@@ -88,6 +119,7 @@ export function readDoc(kind, root, prev = {}) {
       org: f("org", r), title: f("title", r), dates: f("dates", r),
       bullets: lines(r.querySelector('[data-f="bullets"]')),
     })),
+    early_career: lines(root.querySelector('[data-f="early"]')),
     education: [...root.querySelectorAll("[data-edu]")].map((e) => ({ text: f("text", e), dates: f("dates", e) })),
     publications: pubItems.map((el, i) => ({ text: text(el.querySelector('[data-f="pubtext"]') || el), url: prev.publications?.[i]?.url || "" })).filter((p) => p.text),
   };
@@ -103,14 +135,12 @@ export function dedupeSkills(skills = []) {
   }).filter((s) => s.items);
 }
 
-// The owner's web links, from profile preferences, in display order. LinkedIn
-// shows its short address, so it still reads correctly on paper and to an ATS.
+// The owner's web links, from profile preferences, in display order. Each one is
+// labeled with its own short address (never "Portfolio"), so the address reads
+// correctly on paper and to resume screeners that ignore hyperlinks.
 export function linksFromPrefs(prefs = {}) {
-  const short = (url) => String(url || "").replace(/^https:\/\/(www\.)?/i, "").replace(/\/$/, "");
-  // A site saved only in the Website field is the portfolio, so it is labeled that way.
-  const site = safeUrl(prefs.portfolio_url) ? "Website" : "Portfolio";
-  return [[short(prefs.linkedin_url), prefs.linkedin_url], ["Portfolio", prefs.portfolio_url], [site, prefs.website_url]]
-    .filter(([, url]) => safeUrl(url)).map(([label, url]) => ({ label, url }));
+  return [prefs.linkedin_url, prefs.portfolio_url, prefs.website_url]
+    .filter((url) => safeUrl(url)).map((url) => ({ label: shortUrl(url), url }));
 }
 
 // Plain text of a document, for checks (numbers, dashes) and word counts.
@@ -121,6 +151,7 @@ export function docText(kind, c = {}) {
   return [c.summary,
     ...(c.skills || []).map((s) => `${s.label}: ${s.items}`),
     ...(c.roles || []).flatMap((r) => [r.org, r.title, ...(r.bullets || [])]),
+    ...(c.early_career || []),
     ...(c.education || []).map((e) => eduItem(e).text),
     ...(c.publications || []).map((p) => p.text)].filter(Boolean).join("\n");
 }
